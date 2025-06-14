@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <title>和歌山高専生き物同好会</title>
+  <style>
+
+    body {
+        margin: 0;
+        display: flex;
+        height: 100vh;
+      }
+
+    #sidePanel{
+        height: 100%;
+        width: 300px;
+        background-color: rgba(0, 0, 0, 0.82);
+        color: white;
+
+    }
+
+    #sidePanelTitle{
+        
+        text-align: center;
+        
+    }
+
+    #sidePanelTitle p{
+        margin: 0px 0px;
+        font-size: 30px;
+    }
+
+    #sidePanelTitle li{
+        list-style: none;
+    
+    }
+
+    #sidePanelTitle a{
+        text-decoration: none;
+        color:white;
+        font-size: 23px;
+        margin: 3px 3px;
+    }
+
+    #sidePanelTitle a:hover{
+        color:rgb(165, 165, 165);
+    }
+
+    #sidePanelTitle hr{
+        width: 80%;
+        color:white;
+    }
+
+
+    #home{
+        background-color: white;
+        height: 180px;
+        width: 100%;
+        right:auto;
+    }
+
+    #homeTitle{
+        
+        color: black;
+    
+    }
+    
+    #blackfade{
+        background-color: black;
+        height: 300px;
+    }
+
+    #homeTitle h1{
+        font-size: 50px;
+        text-align: center;
+        position:absolute;
+        color: white;
+        top: 85px;
+        left: 40%;
+        z-index: 1000;
+    }
+
+
+    #homeTitle img{
+        object-fit: cover;
+        height: 300px;
+        width: 100%;
+        position: relative;
+        filter: blur(0px);
+        opacity: 0.5;
+
+
+    }
+
+    #homeIntroduce{
+        bottom: auto;
+        height: 70%;
+        width: 100%;
+        background-color: rgb(174, 174, 174);
+    }
+
+    #activity{
+        background-color: white;
+        height: 100%;
+        width: 100%;
+        right:auto;
+    }
+
+    #homeIntroduce h3{
+        margin: 0px 0px;
+        line-height: 12px;
+        padding-left: 40px;
+    }
+
+    #introducemain p{
+        padding-left: 40px;
+        line-height: 8px;
+    }
+
+    #homebottom{
+        bottom: 0;
+        width: 100;
+        min-height: 300px;
+        
+    }
+
+    #homeleftbottom{
+        padding-left: 60px;
+        left: 2;
+        width: 450px;
+    }
+
+    #homeleftbottom a{
+        text-decoration: none;
+        color: black;
+    
+    }
+
+    #homeleftbottom a:hover{
+        color: gray;
+    }
+
+    #homeleftbottom li{
+        list-style: square;
+    }
+
+    
+
+
+
+  </style>
+    </head>
+    <body>
+        <nav id="sidePanel">
+            <div id="sidePanelTitle">
+                <br>
+                <p><strong>和歌山高専</strong></p>
+                <p><strong>生き物同好会</strong></p>
+                <hr>
+                <br>
+                <li><a id="homebutton">ホーム</a></li>
+                <br>
+                <li><a id="activitybutton">活動報告</a></li>
+                <br>
+                <li><a href=>植物関係</a></li>
+                <br>
+                <li><a href=>動物関係</a></li>
+            </div>
+        </nav>
+        <div id="home">
+            <div id="homeTitle">
+                <div id="blackfade">
+                    <img id="titleImage" src="images/titleimage.jpeg">
+                <h1 align="center">和歌山高専生き物同好会</h1>
+                </div>
+            </div>
+            <div id="homeIntroduce">
+                <br>
+                <p><h3>ようこそ！</h3></p>
+                <p><h3>和歌山高専生き物同好会へ！</h3></p>
+                <div id="introducemain"><p>本同好会では和高専周辺を中心に和歌山県内の動植物の分布を調査しています。</p></div>
+                </div>
+            <div id="homebottom">
+                <div id="homeleftbottom">
+                    <p><strong>お知らせ</strong></p>
+                    <li>和歌山高専生き物同好会ホームページを開設しました！</li>
+                    <p><strong>本同好会開発『生物記録システム』</strong></p>
+                    <li><a>操作方法『生物記録システム』</a></li>
+                    <li><a href="生物記録データベース/生物記録PC版.html">生物記録システムPC最新版</a></li> 
+
+                </div>
+            </div>
+        </div>
+
+        <div id="activity">
+
+        </div>
+
+        <script>
+            showhome ()
+            
+            function showhome() {
+                document.getElementById('home').style.display = 'block';
+                document.getElementById('activity').style.display = 'none';
+            }
+
+            function showactivity() {
+                document.getElementById('home').style.display = 'none';
+                document.getElementById('activity').style.display = 'block';
+            }
+               
+            
+
+            document.getElementById('homebutton').addEventListener('click', showhome);
+            document.getElementById('activitybutton').addEventListener('click', showactivity);
+
+
+              
+        </script>
+
+    </body>
+</html>
