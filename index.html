@@ -1,224 +1,2080 @@
 <!DOCTYPE html>
 <html lang="ja">
-    <head>
-        <meta charset="UTF-8">
+<head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生物記録:BiologyRecord</title>
+  <!-- Leaflet 本体 -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet.draw 用スタイル -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-  <title>和歌山高専生き物同好会</title>
+  <link rel="apple-touch-icon" href="apple-touch-icon-180x180.png" sizes="180x180">
+  <link rel="icon" type="image/png" href="android-chrome-192x192.png" sizes="192x192">
   <style>
+    /* Google Fonts: Roboto */
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
+    /* ベーススタイル */
     body {
-        margin: 0;
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ナビゲーションバー内のファイル読み込み部分を非表示 */
+    #loadSection input[type="file"] {
+      display: none;
+    }
+
+    /* ヘッダー */
+    #header {
+      background: linear-gradient(90deg, #3498db, #2ecc71);
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+      font-size: 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* ナビゲーションバー */
+    #nav-bar {
+      display: flex;
+      justify-content: center;
+      background-color: #fff;
+      padding: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      flex-wrap: wrap;
+    }
+    #nav-bar button, #nav-bar label.file-icon {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 1rem;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s ease, transform 0.2s;
+    }
+    #nav-bar button:hover, #nav-bar label.file-icon:hover {
+      background-color: #2980b9;
+      transform: translateY(-2px);
+    }
+
+    /* 共通パネル（入力フォーム、リスト、グリッド、詳細、編集、ボード） */
+    #control-panel, #data-list, #grid, #detailPage, #editPage, #board {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin: 20px auto;
+      overflow-y: auto;
+    }
+    /* 入力フォーム・編集・詳細パネルは幅を広めに */
+    #control-panel, #editPage, #detailPage {
+      width: 90%;
+      max-width: 800px;
+    }
+    #data-list {
+      width: 90%;
+      max-width: 1000px;
+    }
+
+    /* 入力フォームの各要素 */
+    #control-panel label,
+    #control-panel input[type="text"],
+    #control-panel textarea,
+    #control-panel select,
+    #editPage label,
+    #editPage input[type="text"],
+    #editPage textarea,
+    #editPage select {
+      width: 100%;
+      margin-bottom: 15px;
+      font-size: 1rem;
+      padding: 12px;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    /* 横並びグループ */
+    .horizontal-group {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .horizontal-group > div {
+      flex: 1;
+    }
+
+    /* ファイル入力（非表示） */
+    #control-panel input[type="file"],
+    #editPage input[type="file"] {
+      display: none;
+    }
+
+    /* フォーム内ボタン */
+    #control-panel button, #editPage button {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      background-color: #2ecc71;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+    #control-panel button:hover, #editPage button:hover {
+      background-color: #27ae60;
+    }
+
+    /* ボタン行 */
+    .button-row {
+      display: flex;
+      gap: 15px;
+    }
+    .button-row > * {
+      flex: 1;
+    }
+
+    /* ファイルアイコン */
+    .file-icon {
+      display: inline-block;
+      padding: 10px 20px;
+      font-size: 1rem;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+      text-align: center;
+    }
+    .file-icon:hover {
+      background-color: #2980b9;
+    }
+    .file-icon img {
+      vertical-align: middle;
+      margin-right: 8px;
+      max-width: 24px;
+      max-height: 24px;
+    }
+
+    /* 地図表示エリア */
+    #map {
+      width: 100%;
+      height: calc(100vh - 140px);
+      position: relative;
+      border-top: 2px solid #3498db;
+    }
+    /* 地図上のコントロール */
+    #areaSearchControl {
+      position: absolute;
+      top: 50px;
+      left: 50px;
+      z-index: 2000;
+    }
+    #areaSearchControl button {
+      padding: 8px 12px;
+      margin: 5px;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background-color 0.3s;
+    }
+    #areaSearchControl button:hover {
+      background-color: #2980b9;
+    }
+
+    /* マップフィルター：界選択ボタン */
+    #mapKingdomFilter {
+      position: absolute;
+      top: 8px;
+      left: 52px;
+      z-index: 2000;
+    }
+    #mapKingdomFilter button {
+      margin: 3px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      background-color: #ecf0f1;
+      color: #333;
+      border: 1px solid #bdc3c7;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    #mapKingdomFilter button.active {
+      background-color: #3498db;
+      color: #fff;
+      border-color: #2980b9;
+    }
+    #mapKingdomFilter button:hover {
+      background-color: #2980b9;
+      color: #fff;
+    }
+
+    /* ヒートマップコントロール */
+    #heatmapControl {
+      position: absolute;
+      top: 12px;
+      left: 355px;
+      z-index: 2000;
+    }
+    #heatmapControl button {
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    #heatmapControl button:hover {
+      background-color: #2980b9;
+    }
+
+    /* データリスト（テーブル表示） */
+    #data-list table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #data-list th, #data-list td {
+      padding: 12px;
+      text-align: center;
+      border-bottom: 1px solid #ecf0f1;
+    }
+    #data-list th {
+      background-color: #ecf0f1;
+      font-weight: 500;
+    }
+    #data-list tr:hover {
+      background-color: #f1f1f1;
+      cursor: pointer;
+    }
+
+    /* グリッド表示：横4項目 */
+    #grid {
+      text-align: center;
+    }
+    #gridContainer {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin: auto;
+    }
+
+    /* 画像モーダル */
+    #imageModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+    }
+    #imageModal img {
+      max-width: 90%;
+      max-height: 90%;
+      object-fit: contain;
+      cursor: pointer;
+      border: 5px solid #fff;
+      border-radius: 8px;
+    }
+
+    /* ミニリスト */
+    #miniList {
+      position: absolute;
+      top: 100px;
+      right: 30px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 8px;
+      height: 500px;
+      overflow-y: auto;
+      z-index: 2000;
+      width: 350px;
+      display: none;
+      font-size: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    #miniListControls {
+      display: flex;
+      justify-content: center;
+      padding: 10px;
+      background-color: #ecf0f1;
+      align-items: center;
+    }
+    #miniListControls button {
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 3px;
+      background-color: #3498db;
+      color: #fff;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    #miniListControls button:hover {
+      background-color: #2980b9;
+    }
+
+    /* 詳細ページ */
+    #detailPage {
+      width: 90%;
+      max-width: 1000px;
+    }
+    #backButton {
+      margin-bottom: 15px;
+      padding: 10px 15px;
+      font-size: 1rem;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    #backButton:hover {
+      background-color: #2980b9;
+    }
+    #detailSpecies {
+      font-size: 2rem;
+      margin: 10px 0;
+    }
+    #detailConservation, #detailInfo p {
+      font-size: 1rem;
+      margin: 10px 0;
+      line-height: 1.5;
+    }
+    /* 詳細ページの画像を全幅表示・自動高さ調整 */
+    #detailImage {
+      margin-bottom: 20px;
+    }
+    #detailImage img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+    #detailMap {
+      width: 100%;
+      height: 300px;
+      margin-top: 10px;
+      border: 3px solid #bdc3c7;
+      border-radius: 4px;
+      pointer-events: auto; /* 操作可能に変更 */
+    }
+
+    /* 編集ページ */
+    #editPage {
+      width: 90%;
+      max-width: 800px;
+    }
+    /* 編集ページ内ボタン（クラス化） */
+    .edit-button button, .edit-button label {
+      padding: 10px 15px;
+      font-size: 1rem;
+      background-color: #2ecc71;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+      margin-top: 5px;
+    }
+    .edit-button button:hover, .edit-button label:hover {
+      background-color: #27ae60;
+    }
+
+    /* ボード表示 */
+    #board {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 140px);
+      background-color: #fff;
+      overflow: hidden;
+      margin: 20px auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .board-image {
+      position: absolute;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+    .board-image:hover {
+      transform: scale(1.05);
+    }
+
+      /* 観察記録用フォーム */
+      #control-panel {
+        display: none;
+        padding: 20px;
+        background-color: #efeeee;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      /* 各フォーム要素 */
+      #control-panel label,
+      #control-panel input[type="text"],
+      #control-panel textarea {
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 16px;
+        box-sizing: border-box;
+        padding: 8px;
+      }
+      /* 科・属を横並びに */
+      .horizontal-group {
         display: flex;
-        height: 100vh;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .horizontal-group > div {
+        flex: 1;
+      }
+      /* 画像選択用inputは非表示 */
+      #control-panel input[type="file"] {
+        display: none;
+      }
+      /* 記録ボタン */
+      #control-panel button {
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 16px;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+        padding: 8px 12px;
       }
 
-    #sidePanel{
-        height: 100%;
-        width: 300px;
-        background-color: rgba(0, 0, 0, 0.82);
-        color: white;
+      /* 横並びの行 */
+      .button-row {
+        display: flex;
+        gap: 10px;
+      }
+      .button-row > * {
+        width: auto;
+      }
 
+      .kingdombutton {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .kingdombutton > div {
+        flex: 1;
+      }
+
+      #kingdomSelector button.active {
+        background-color: #458cd8;
     }
 
-    #sidePanelTitle{
-        
-        text-align: center;
-        
+    #editPage {
+      display: none;
+      padding: 25px;
+      background-color: #efeeee;
+      flex-direction: column;
+      overflow-y: auto;
+      height: calc(100vh - 100px);
+      position: relative;
+    }
+    #editPage p {
+      text-align: center;
+    }
+    #editPage label,
+    #editPage input[type="text"],
+    #editPage textarea,
+    #editPage select {
+      width: 100%;
+      margin-bottom: 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+      padding: 6px;
+    }
+    /* 編集画面用界選択ボタン */
+    #editKingdomSelector button {
+      margin: 0 5px;
+      padding: 4px 8px;
+      font-size: 12px;
+
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+    #editKingdomSelector button.active {
+      background-color: #2980b9;
     }
 
-    #sidePanelTitle p{
-        margin: 0px 0px;
-        font-size: 30px;
+    /* 編集画面内のファイル入力は非表示 */
+    #editImage {
+      display: none;
+    }
+    /* 編集画面の詳細テキストエリアを強制的に大きく */
+    #editPage #editDetails {
+      height: 200px !important;
+    }
+    .edit-button {
+      text-align: center;
     }
 
-    #sidePanelTitle li{
-        list-style: none;
-    
+    #detailPage {
+      display: none;
+      padding: 20px;
+      box-sizing: border-box;
+      height: calc(100vh - 100px);
+      overflow-y: auto;
+      background-color: #fff;
+    }
+    /* 詳細ページ内のレイアウト */
+    #detailPage .detail-container {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    /* 画像部分は固定幅 */
+    #detailImage {
+      flex: 0 0 450px;
+    }
+    #detailImage img {
+      max-width: 100%;
+    }
+    /* テキスト情報は右側に */
+    #detailInfo {
+      flex: 1;
+    }
+    /* 詳細ページのテキスト情報の段落 */
+    #detailInfo p {
+      margin: 5px 0;
+      font-size: 16px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
     }
 
-    #sidePanelTitle a{
-        text-decoration: none;
-        color:white;
-        font-size: 23px;
-        margin: 3px 3px;
-    }
+    #detailInfoh2 {
+      text-align: center;
+  }
 
-    #sidePanelTitle a:hover{
-        color:rgb(165, 165, 165);
-    }
+  #dataListKingdomFilter, #gridKingdomFilter {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  #dataListKingdomFilter button, #gridKingdomFilter button {
+    margin: 0 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+    background-color: #ccc;
+    color: #333;
+    border: 1px solid #aaa;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  #dataListKingdomFilter button.active, #gridKingdomFilter button.active {
+    background-color: #3498db;
+    color: white;
+    border-color: #2980b9;
+  }
+  .kingdombutton {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .kingdombutton > div {
+    flex: 1;
+  }
 
-    #sidePanelTitle hr{
-        width: 80%;
-        color:white;
-    }
+  #editPage input{
+    border: 1px solid #000;
+  }
 
+  #control-panel input{
+    border: 1px solid #000;
+  }
 
-    #home{
-        background-color: white;
-        height: 180px;
-        width: 100%;
-        right:auto;
-    }
-
-    #homeTitle{
-        
-        color: black;
-    
-    }
-    
-    #blackfade{
-        background-color: black;
-        height: 300px;
-    }
-
-    #homeTitle h1{
-        font-size: 50px;
-        text-align: center;
-        position:absolute;
-        color: white;
-        top: 85px;
-        left: 40%;
-        z-index: 1000;
-    }
-
-
-    #homeTitle img{
-        object-fit: cover;
-        height: 300px;
-        width: 100%;
-        position: relative;
-        filter: blur(0px);
-        opacity: 0.5;
-
-
-    }
-
-    #homeIntroduce{
-        bottom: auto;
-        height: 70%;
-        width: 100%;
-        background-color: rgb(174, 174, 174);
-    }
-
-    #activity{
-        background-color: white;
-        height: 100%;
-        width: 100%;
-        right:auto;
-    }
-
-    #homeIntroduce h3{
-        margin: 0px 0px;
-        line-height: 12px;
-        padding-left: 40px;
-    }
-
-    #introducemain p{
-        padding-left: 40px;
-        line-height: 8px;
-    }
-
-    #homebottom{
-        bottom: 0;
-        width: 100;
-        min-height: 300px;
-        
-    }
-
-    #homeleftbottom{
-        padding-left: 60px;
-        left: 2;
-        width: 450px;
-    }
-
-    #homeleftbottom a{
-        text-decoration: none;
-        color: black;
-    
-    }
-
-    #homeleftbottom a:hover{
-        color: gray;
-    }
-
-    #homeleftbottom li{
-        list-style: square;
-    }
-
-    
-
-
+   /* Hide file input text next to the label */
+  #loadBoundarySection input[type="file"] {
+    display: none;
+  }
 
   </style>
-    </head>
-    <body>
-        <nav id="sidePanel">
-            <div id="sidePanelTitle">
-                <br>
-                <p><strong>和歌山高専</strong></p>
-                <p><strong>生き物同好会</strong></p>
-                <hr>
-                <br>
-                <li><a id="homebutton">ホーム</a></li>
-                <br>
-                <li><a id="activitybutton">活動報告</a></li>
-                <br>
-                <li><a href=>植物関係</a></li>
-                <br>
-                <li><a href=>動物関係</a></li>
-            </div>
-        </nav>
-        <div id="home">
-            <div id="homeTitle">
-                <div id="blackfade">
-                    <img id="titleImage" src="images/titleimage.jpeg">
-                <h1 align="center">和歌山高専生き物同好会</h1>
-                </div>
-            </div>
-            <div id="homeIntroduce">
-                <br>
-                <p><h3>ようこそ！</h3></p>
-                <p><h3>和歌山高専生き物同好会へ！</h3></p>
-                <div id="introducemain"><p>本同好会では和高専周辺を中心に和歌山県内の動植物の分布を調査しています。</p></div>
-                </div>
-            <div id="homebottom">
-                <div id="homeleftbottom">
-                    <p><strong>お知らせ</strong></p>
-                    <li>和歌山高専生き物同好会ホームページを開設しました！</li>
-                    <p><strong>本同好会開発『生物記録システム』</strong></p>
-                    <li><a>操作方法『生物記録システム』</a></li>
-                    <li><a href="生物記録データベース/生物記録PC版.html">生物記録システムPC最新版</a></li> 
 
-                </div>
-            </div>
-        </div>
 
-        <div id="activity">
+</head>
+<body>
+  <!-- 画像モーダル -->
+  <div id="imageModal">
+    <img id="modalImage">
+  </div>
 
-        </div>
+  <div id="header">生物記録システム</div>
 
-        <script>
-            showhome ()
-            
-            function showhome() {
-                document.getElementById('home').style.display = 'block';
-                document.getElementById('activity').style.display = 'none';
+  <div id="nav-bar">
+    <div id="loadSection" align="center">
+      <label for="fileInput" class="file-icon" align="center">データ読込</label>
+      <input type="file" id="fileInput" accept=".txt" multiple>
+    </div>
+    <!-- 既存の画面切替ボタン -->
+    <button id="editDataButton" type="button">データ編集</button>
+    <button id="recordFormButton" type="button">観察記録</button>
+    <div id="loadBoundarySection" align="center">
+  <label for="boundaryInput" class="file-icon">境界読込</label>
+  <input type="file" id="boundaryInput" accept=".json,.topojson" multiple>
+</div>
+    <button id="mapButton" type="button" ><img src="images/mappin.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">マップ</button>
+    <button id="dataButton" type="button"><img src="images/list.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">リスト</button>
+    <button id="gridButton" type="button"><img src="images/grid.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">グリッド</button>
+    <button id="boardButton" type="button"><img src="images/board.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">ボード</button>
+
+  </div>
+
+
+  <!-- 観察記録用フォーム -->
+  <div id="control-panel">
+    <!-- 界選択ボタン群 -->
+    <div id="kingdomSelector" class="kingdombutton">
+      <button type="button" class="kingdom-btn" data-kingdom="動物界">動物界</button>
+      <button type="button" class="kingdom-btn active" data-kingdom="植物界">植物界</button>
+      <button type="button" class="kingdom-btn" data-kingdom="菌界">菌界</button>
+    </div>
+    <!-- 隠しフィールド -->
+    <input type="hidden" id="kingdom" value="植物界">
+
+    <label for="species">種名:</label>
+    <input type="text" id="species" placeholder="種名を入力">
+
+    <!-- 科と属の入力欄 -->
+    <div class="horizontal-group">
+      <div>
+        <label for="family">科:</label>
+        <input type="text" id="family" placeholder="科を入力">
+      </div>
+      <div>
+        <label for="genus">属:</label>
+        <input type="text" id="genus" placeholder="属を入力">
+      </div>
+    </div>
+
+    <div class="horizontal-group">
+      <div>
+        <label for="coordinates">座標:</label>
+        <input type="text" id="coordinates" placeholder="例: 34.8338852, 135.1753214">
+      </div>
+      <div>
+        <label for="discoveredDate">発見日:</label>
+        <input type="text" id="discoveredDate" placeholder="例: 2025年1月15日">
+      </div>
+    </div>
+
+    <!-- 都道府県市町村と絶滅危惧種を横並びに -->
+    <div class="horizontal-group">
+      <div>
+        <label for="location">都道府県市町村:</label>
+        <input type="text" id="location" placeholder="例: 和歌山県和歌山市">
+      </div>
+      <div>
+        <label for="conservation">絶滅危惧種:</label>
+        <select id="conservation">
+          <option value="指定なし" selected>指定なし</option>
+          <option value="準絶滅危惧(NT)">準絶滅危惧(NT)</option>
+          <option value="絶滅危惧II(VU)">絶滅危惧II(VU)</option>
+          <option value="絶滅危惧IB(EN)">絶滅危惧IB(EN)</option>
+          <option value="絶滅危惧IA(CR)">絶滅危惧IA(CR)</option>
+          <option value="情報不足(DD)">情報不足(DD)</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="details">詳細:</label>
+    <textarea id="details" placeholder="感想または個体数や周辺環境などを記してください"></textarea>
+
+    <div class="button-row">
+      <label for="image" class="file-icon">画像を選択</label>
+      <button id="recordButton" type="button">記録</button>
+    </div>
+
+    <input type="file" id="image" accept="image/*">
+    <div id="imagePreview" style="margin-top: 10px;"></div>
+  </div>
+
+  <!-- 地図表示エリア -->
+  <div id="map">
+    <!-- マップ左上のフィルター -->
+    <div id="mapKingdomFilter">
+      <button data-kingdom="" class="active">すべて</button>
+      <button data-kingdom="動物界">動物界</button>
+      <button data-kingdom="植物界">植物界</button>
+      <button data-kingdom="菌界">菌界</button>
+    </div>
+    <!-- エリア検索、エリア解除、ピン更新、全画面表示ボタン（左上、下部） -->
+    <div id="areaSearchControl">
+      <button id="startAreaSearch" type="button">エリア検索</button>
+      <button id="clearAreaSearch" type="button">エリア解除</button>
+      <button id="refreshMarkersBtn" type="button">ピン更新</button>
+      <button id="fullscreenButton" type="button">全画面表示</button>
+    </div>
+    <!-- ヒートマップ表示（右上） -->
+    <div id="heatmapControl">
+      <button id="heatmapButton" type="button">ヒートマップ表示</button>
+    </div>
+    <!-- ミニリスト -->
+    <div id="miniList">
+      <div id="miniListControls">
+        <button id="updateMiniListBtn" type="button">更新</button>
+        <button id="toggleMiniListBtn" type="button">非表示</button>
+      </div>
+      <div id="miniListItems">
+        <!-- ミニリストアイテムは updateMiniList() 内で動的に追加 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- リスト表示 -->
+  <div id="data-list">
+    <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 10px;">
+      <input type="text" id="searchBar" placeholder="種名、科、界、座標で検索" style="width: 100%; max-width: 400px; padding: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px;">
+      <div id="dataListKingdomFilter">
+        <button type="button" data-kingdom="" class="active">すべて</button>
+        <button type="button" data-kingdom="植物界">植物界</button>
+        <button type="button" data-kingdom="動物界">動物界</button>
+        <button type="button" data-kingdom="菌界">菌界</button>
+      </div>
+    </div>
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th><strong>画像</strong></th>
+          <th><strong>種名</strong></th>
+          <th><strong>科</strong></th>
+          <th><strong>属</strong></th>
+          <th><strong>座標</strong></th>
+          <th><strong>発見日</strong></th>
+          <th><strong>都道府県市町村</strong></th>
+          <th><strong>記録時間</strong></th>
+        </tr>
+      </thead>
+      <tbody id="dataListTbody"></tbody>
+    </table>
+  </div>
+
+  <!-- グリッド表示 -->
+  <div id="grid">
+    <div id="gridSearchContainer">
+      <input type="text" id="gridSearchBar" placeholder="種名、科、界、座標で検索" style="width: 100%; max-width: 400px; padding: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px;">
+      <div id="gridKingdomFilter">
+        <button type="button" data-kingdom="" class="active">すべて</button>
+        <button type="button" data-kingdom="植物界">植物界</button>
+        <button type="button" data-kingdom="動物界">動物界</button>
+        <button type="button" data-kingdom="菌界">菌界</button>
+      </div>
+    </div>
+    <div id="gridContainer"></div>
+  </div>
+
+  <!-- 詳細ページ -->
+  <div id="detailPage">
+    <button id="backButton" type="button">戻る</button>
+    <div class="detail-container">
+      <div id="detailImage">
+        <img src="" alt="植物画像">
+      </div>
+      <div id="detailInfo">
+        <p><strong></strong> <span id="detailSpecies"></span></p>
+        <!-- 絶滅危惧種（詳細ページ：科の上に配置） -->
+        <p id="detailConservation"><strong>【絶滅危惧分類】</strong> <span id="conservationStatus"></span></p>
+        <p><strong>【科】</strong> <span id="detailFamily"></span></p>
+        <p><strong>【属】</strong> <span id="detailGenus"></span></p>
+        <p><strong>【発見地】</strong> <span id="detailLocation"></span></p>
+        <p><strong>【発見日】</strong> <span id="detailDiscoveredDate"></span></p>
+        <p><strong>【座標】</strong> <span id="detailCoordinates"></span></p>
+        <p><strong>【詳細】</strong> <span id="detailDetails"></span></p>
+        <p id="detailsmaptext"><strong>【周辺地図】</strong></p>
+        <div id="detailMap" align="center"></div>
+      </div>
+    </div>
+    <h2 id="detailInfoh2">Wikipediaより引用</h2>
+    <div id="wikipediaLink"></div>
+  </div>
+
+  <!-- 編集ページ -->
+  <div id="editPage">
+    <label for="editRecordSelect">編集する記録を選択:</label>
+    <select id="editRecordSelect" style="width:100%; padding:8px; font-size:16px; margin-bottom:10px;"></select>
+
+    <div id="editKingdomSelector" class="kingdombutton">
+      <button type="button" class="edit-kingdom-btn" data-kingdom="動物界">動物界</button>
+      <button type="button" class="edit-kingdom-btn" data-kingdom="植物界">植物界</button>
+      <button type="button" class="edit-kingdom-btn" data-kingdom="菌界">菌界</button>
+    </div>
+    <input type="hidden" id="editKingdom" value="">
+
+    <label for="editSpecies">種名:</label>
+    <input type="text" id="editSpecies" placeholder="種名を入力">
+
+    <div class="horizontal-group">
+      <div>
+        <label for="editFamily">科:</label>
+        <input type="text" id="editFamily" placeholder="科を入力">
+      </div>
+      <div>
+        <label for="editGenus">属:</label>
+        <input type="text" id="editGenus" placeholder="属を入力">
+      </div>
+    </div>
+
+    <div class="horizontal-group">
+      <div>
+        <label for="editCoordinates">座標:</label>
+        <input type="text" id="editCoordinates" placeholder="例: 34.8338852, 135.1753214">
+      </div>
+      <div>
+        <label for="editDiscoveredDate">発見日:</label>
+        <input type="text" id="editDiscoveredDate" placeholder="例: 2025年1月15日">
+      </div>
+    </div>
+
+    <!-- 都道府県市町村と絶滅危惧種（編集画面） -->
+    <div class="horizontal-group">
+      <div>
+        <label for="editLocation">都道府県市町村:</label>
+        <input type="text" id="editLocation" placeholder="例: 和歌山県和歌山市">
+      </div>
+      <div>
+        <label for="editConservation">絶滅危惧種:</label>
+        <select id="editConservation">
+          <option value="指定なし" selected>指定なし</option>
+          <option value="準絶滅危惧(NT)">準絶滅危惧(NT)</option>
+          <option value="絶滅危惧II(VU)">絶滅危惧II(VU)</option>
+          <option value="絶滅危惧IB(EN)">絶滅危惧IB(EN)</option>
+          <option value="絶滅危惧IA(CR)">絶滅危惧IA(CR)</option>
+          <option value="情報不足(DD)">情報不足(DD)</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="editDetails">詳細:</label>
+    <textarea id="editDetails" placeholder="感想または個体数や周辺環境などを記してください" ></textarea>
+
+    <div class="button-row">
+      <div class="edit-button">
+        <label for="editImage" >画像を選択</label>
+      </div>
+      <div class="edit-button">
+        <button id="updateRecordButton" type="button" >更新</button>
+      </div>
+      <div class="edit-button">
+        <button id="saveRecordAsTxtButton" type="button">ファイル保存</button>
+      </div>
+    </div>
+
+    <input type="file" id="editImage" accept="image/*">
+    <div id="editImagePreview" style="margin-top: 10px;"></div>
+  </div>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+
+  <div id="board"></div>
+
+  <!-- スクリプト群 -->
+  <!-- Leaflet と Leaflet.draw -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <!-- ※今回はグリッド状のヒートマップ実装のため、Leaflet.heat は利用しません -->
+<script>
+/*************** セッション管理・グローバル変数 ***************/
+// localStorage を勝手に消さないよう beforeunload のクリアは削除しました。
+localStorage.clear();
+let map,
+    storedPins = JSON.parse(localStorage.getItem('pins')) || [],
+    pinMarkers = [];
+// 各フィルター用グローバル変数
+let dataListKingdomFilter = "";
+let gridKingdomFilter = "";
+let mapKingdomFilter = "";
+// エリア検索用フィルター：drawn layerを保持
+let areaFilterLayer = null;
+// drawnItems をグローバル変数として保持
+let drawnItems;
+// ヒートマップ表示のON/OFF状態（true のときはグリッド状ヒートマップを表示し、ピンは非表示）
+let heatmapOn = false;
+// グリッドヒートマップレイヤー
+let gridHeatmapLayer = null;
+
+/*************** カスタムアイコン設定 ***************/
+const plantIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  iconSize: [15, 25],
+  iconAnchor: [7, 25],
+  popupAnchor: [1, -20]
+});
+
+const animalIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  iconSize: [15, 25],
+  iconAnchor: [7, 25],
+  popupAnchor: [1, -20]
+});
+
+const fungiIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+  iconSize: [15, 25],
+  iconAnchor: [7, 25],
+  popupAnchor: [1, -20]
+});
+
+/*************** タイルレイヤー設定 ***************/
+// 標準OSM
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap contributors'
+});
+// 衛星写真：Esri World Imagery
+const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19,
+  attribution: '© Esri, DigitalGlobe, GeoEye, Earthstar, etc.'
+});
+
+// 第5回植生（Ecoris タイル） — オーバーレイとして追加（利用規約を確認してください）
+const vegLayer = L.tileLayer('https://map.ecoris.info/tiles/vege/{z}/{x}/{y}.png', {
+  minZoom: 5,
+  maxZoom: 15,
+  attribution: '出典: Ecoris 地図タイル（環境省 第5回植生調査データを使用）'
+});
+
+const baseLayers = {
+  "標準": osmLayer,
+  "衛星写真": satelliteLayer
+};
+const overlayLayers = {
+  '第5回 植生(オーバーレイ)': vegLayer
+};
+
+/*************** 地図の初期化 ***************/
+function initializeMap() {
+  map = L.map('map', {
+    center: [34.226034, 135.167507],
+    zoom: 8,
+    layers: [osmLayer]
+  });
+  L.control.layers(baseLayers, overlayLayers).addTo(map);
+  map.on('moveend', function() {
+    if (heatmapOn) {
+      updateHeatmap();
+    }
+  });
+
+ const boundaryLayers = [];
+
+document.getElementById('boundaryInput').addEventListener('change', function(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const topoData = JSON.parse(e.target.result);
+        const objectName = Object.keys(topoData.objects)[0];
+        const geoJson = topojson.feature(topoData, topoData.objects[objectName]);
+        const layer = L.geoJSON(geoJson, {
+          style: {
+            color: '#0F5474',      
+            weight: 2,
+            fill: true,
+            fillColor: '#0F5474',  
+            fillOpacity: 0.2      
+          }
+        }).addTo(map);
+        boundaryLayers.push(layer);
+        // Fit map to all boundaries
+        const group = L.featureGroup(boundaryLayers);
+        map.fitBounds(group.getBounds());
+      } catch (err) {
+        console.error('TopoJSON parse error:', err);
+      }
+    };
+    reader.readAsText(file);
+  });
+  // Reset input to allow re-selection of same files
+  event.target.value = '';
+});
+  
+
+  // drawnItems の初期化
+  drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+  // Leaflet.draw の設定（矩形と円形のみ許可：多角形は無効）
+  let drawControl = new L.Control.Draw({
+    draw: {
+      polyline: false,
+      polygon: false,
+      circle: {
+        shapeOptions: { color: '#97009c' }
+      },
+      marker: false,
+      circlemarker: false,
+      rectangle: {
+        shapeOptions: { color: '#97009c' }
+      }
+    },
+    edit: { featureGroup: drawnItems, edit: false, remove: false }
+  });
+  map.addControl(drawControl);
+  map.on(L.Draw.Event.CREATED, function (event) {
+    let layer = event.layer;
+    drawnItems.clearLayers();
+    drawnItems.addLayer(layer);
+    areaFilterLayer = layer;
+    updateMapMarkers();
+    updateMiniList();
+    updateDataList();
+    updateGrid();
+    updateHeatmap();
+  });
+  // 既存のピンを描画
+  storedPins.forEach((pin, index) => {
+    addPin(pin.species, pin.family, pin.genus, pin.kingdom, pin.lat, pin.lng, pin.imageUrl, pin.timestamp, pin.discoveredDate, pin.location, pin.details, pin.conservation, false, index);
+  });
+  // ミニリスト内のスクロール伝播を無効化
+  const miniListEl = document.getElementById('miniList');
+  if (miniListEl) {
+    L.DomEvent.disableScrollPropagation(miniListEl);
+  }
+  
+}
+
+/*************** 補助関数：エリア内判定 ***************/
+function isPointInsideArea(layer, latLng) {
+  if (!layer) return true;
+  if (layer instanceof L.Circle) {
+    return latLng.distanceTo(layer.getLatLng()) <= layer.getRadius();
+  } else if (layer instanceof L.Rectangle) {
+    return layer.getBounds().contains(latLng);
+  }
+  return true;
+}
+
+/*************** ヒートマップ更新（グリッド式） ***************/
+function updateHeatmap() {
+  if (gridHeatmapLayer) {
+    map.removeLayer(gridHeatmapLayer);
+    gridHeatmapLayer = null;
+  }
+  if (!heatmapOn) return;
+
+  gridHeatmapLayer = L.layerGroup();
+  const cellSize = 11;
+  const zoom = map.getZoom();
+  const bounds = map.getBounds();
+  const topLeft = map.project(bounds.getNorthWest(), zoom);
+  const bottomRight = map.project(bounds.getSouthEast(), zoom);
+  const width = bottomRight.x - topLeft.x;
+  const height = bottomRight.y - topLeft.y;
+  const cols = Math.ceil(width / cellSize);
+  const rows = Math.ceil(height / cellSize);
+
+  let gridCounts = new Array(rows);
+  for (let r = 0; r < rows; r++) {
+    gridCounts[r] = new Array(cols).fill(0);
+  }
+
+  storedPins.forEach(pin => {
+    if (mapKingdomFilter && pin.kingdom.toLowerCase() !== mapKingdomFilter) return;
+    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(pin.lat, pin.lng))) return;
+    const point = map.project(L.latLng(pin.lat, pin.lng), zoom);
+    const col = Math.floor((point.x - topLeft.x) / cellSize);
+    const row = Math.floor((point.y - topLeft.y) / cellSize);
+    if (col >= 0 && col < cols && row >= 0 && row < rows) {
+      gridCounts[row][col]++;
+    }
+  });
+
+  let maxCount = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (gridCounts[r][c] > maxCount) maxCount = gridCounts[r][c];
+    }
+  }
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const count = gridCounts[r][c];
+      if (count > 0) {
+        const x1 = topLeft.x + c * cellSize;
+        const y1 = topLeft.y + r * cellSize;
+        const x2 = x1 + cellSize;
+        const y2 = y1 + cellSize;
+        const nw = map.unproject(L.point(x1, y1), zoom);
+        const se = map.unproject(L.point(x2, y2), zoom);
+        const cellBounds = [nw, se];
+        const ratio = count / maxCount;
+        // 補間：オレンジ (255,165,0) から赤 (255,0,0) へのグラデーション
+        const green = Math.round(165 * (1 - ratio));
+        const fillColor = `rgb(255, ${green}, 0)`;
+        const rect = L.rectangle(cellBounds, {
+          color: "#ffffff",    // 白色の枠線
+          weight: 1,           // 枠線の太さ
+          fillColor: fillColor,
+          fillOpacity: 0.6,
+          interactive: false
+        });
+        rect.addTo(gridHeatmapLayer);
+      }
+    }
+  }
+  gridHeatmapLayer.addTo(map);
+}
+
+/*************** 表示切替関数 ***************/
+function showMap() {
+  document.getElementById('map').style.display = 'block';
+  document.getElementById('control-panel').style.display = 'none';
+  document.getElementById('data-list').style.display = 'none';
+  document.getElementById('grid').style.display = 'none';
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'none';
+  document.getElementById('editPage').style.display = 'none';
+  // ヒートマップ表示時はピンは非表示するので、heatmapOn が falseの場合のみ marker を表示
+  if (!heatmapOn) {
+    updateMapMarkers();
+  }
+  map.invalidateSize();
+}
+function showDataList() {
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('control-panel').style.display = 'none';
+  document.getElementById('data-list').style.display = 'block';
+  document.getElementById('grid').style.display = 'none';
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'none';
+  document.getElementById('editPage').style.display = 'none';
+  updateDataList();
+}
+function showGrid() {
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('control-panel').style.display = 'none';
+  document.getElementById('data-list').style.display = 'none';
+  document.getElementById('grid').style.display = 'block';
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'none';
+  document.getElementById('editPage').style.display = 'none';
+  updateGrid();
+}
+function showRecordForm() {
+  document.getElementById('control-panel').style.display = 'block';
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('data-list').style.display = 'none';
+  document.getElementById('grid').style.display = 'none';
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'none';
+  document.getElementById('editPage').style.display = 'none';
+}
+function showEditPage() {
+  document.getElementById('editPage').style.display = 'block';
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('control-panel').style.display = 'none';
+  document.getElementById('data-list').style.display = 'none';
+  document.getElementById('grid').style.display = 'none';
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'none';
+  updateEditRecordSelect();
+}
+// 新機能：ボード画面表示
+function showBoard() {
+  document.getElementById('board').style.display = 'block';
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('control-panel').style.display = 'none';
+  document.getElementById('data-list').style.display = 'none';
+  document.getElementById('grid').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'none';
+  document.getElementById('editPage').style.display = 'none';
+  updateBoard();
+}
+
+/*************** 新機能：ボード更新関数（整列版） ***************/
+function updateBoard() {
+  const boardContainer = document.getElementById('board');
+  boardContainer.innerHTML = '';
+  const boardWidth = boardContainer.clientWidth;
+  
+  const imagePromises = storedPins
+    .map((pin, originalIndex) => {
+      if (!pin.imageUrl || pin.imageUrl === 'なし') return Promise.resolve(null);
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = function() {
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
+          resolve({ pin, aspectRatio, originalIndex });
+        };
+        img.onerror = function() {
+          resolve(null);
+        };
+        img.src = pin.imageUrl;
+      });
+    });
+  
+  Promise.all(imagePromises).then(results => {
+    const items = results.filter(item => item !== null);
+    if (items.length === 0) return;
+    const rows = [];
+    let currentRow = [];
+    let currentAspectSum = 0;
+    const desiredRowHeight = 200;
+    
+    items.forEach(item => {
+      currentRow.push(item);
+      currentAspectSum += item.aspectRatio;
+      if (desiredRowHeight * currentAspectSum >= boardWidth) {
+        rows.push({ items: currentRow, aspectSum: currentAspectSum });
+        currentRow = [];
+        currentAspectSum = 0;
+      }
+    });
+    if (currentRow.length > 0) {
+      rows.push({ items: currentRow, aspectSum: currentAspectSum });
+    }
+    
+    let yOffset = 0;
+    rows.forEach(row => {
+      const rowHeight = Math.max(100, Math.min(300, boardWidth / row.aspectSum));
+      let xOffset = 0;
+      row.items.forEach(item => {
+        const imgWidth = rowHeight * item.aspectRatio;
+        const imgElem = document.createElement('img');
+        imgElem.src = item.pin.imageUrl;
+        imgElem.classList.add('board-image');
+        imgElem.style.width = imgWidth + 'px';
+        imgElem.style.height = rowHeight + 'px';
+        imgElem.style.left = xOffset + 'px';
+        imgElem.style.top = yOffset + 'px';
+        imgElem.addEventListener('click', function() {
+          const originalIndex = item.originalIndex;
+          if (originalIndex >= 0) {
+            showDetail(originalIndex);
+          }
+        });
+        boardContainer.appendChild(imgElem);
+        xOffset += imgWidth;
+      });
+      yOffset += rowHeight;
+    });
+  });
+}
+
+/*************** 全画面表示（マップのみ）トグル機能 ***************/
+document.getElementById('fullscreenButton').addEventListener('click', function() {
+  const mapElement = document.getElementById('map');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+    if (mapElement.requestFullscreen) {
+      mapElement.requestFullscreen();
+    } else if (mapElement.webkitRequestFullscreen) {
+      mapElement.webkitRequestFullscreen();
+    } else if (mapElement.msRequestFullscreen) {
+      mapElement.msRequestFullscreen();
+    }
+    this.textContent = '全画面終了';
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+    this.textContent = '全画面表示';
+  }
+});
+
+/*************** 詳細ページ表示＆静的マップ ***************/
+function showDetail(index) {
+  const pin = storedPins[index];
+  document.getElementById('detailSpecies').textContent = pin.species;
+  document.getElementById('conservationStatus').textContent = pin.conservation;
+  document.getElementById('detailFamily').textContent = pin.family || '';
+  document.getElementById('detailGenus').textContent = pin.genus || '';
+  document.getElementById('detailLocation').textContent = pin.location || '';
+  document.getElementById('detailDiscoveredDate').textContent = pin.discoveredDate;
+  document.getElementById('detailCoordinates').textContent = `${pin.lat}, ${pin.lng}`;
+  document.getElementById('detailDetails').textContent = pin.details || '';
+  const detailImg = document.querySelector('#detailImage img');
+  detailImg.src = pin.imageUrl ? pin.imageUrl : '';
+
+  // Wikipedia API 取得
+  const wikipediaDiv = document.getElementById('wikipediaLink');
+  wikipediaDiv.innerHTML = '<p>Wikipedia の内容を読み込み中...</p>';
+  const speciesEncoded = encodeURIComponent(pin.species);
+  const wikiApiUrl = `https://ja.wikipedia.org/w/api.php?action=parse&page=${speciesEncoded}&format=json&origin=*&prop=text`;
+  fetch(wikiApiUrl)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        wikipediaDiv.innerHTML = '<p>Wikipedia の内容が見つかりませんでした。</p>';
+      } else {
+        let htmlContent = data.parse.text["*"];
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, "text/html");
+        doc.querySelectorAll('table.infobox, [class*="reference"], .mw-references-wrap, ol.references, div.reflist, .thumbcaption, .thumb, .mw-editsection').forEach(el => el.remove());
+        doc.querySelectorAll('a').forEach(a => {
+          const href = a.getAttribute("href");
+          if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
+            const span = document.createElement("span");
+            span.textContent = a.textContent;
+            a.parentNode.replaceChild(span, a);
+          } else {
+            a.removeAttribute("href");
+            a.style.color = "black";
+            a.style.textDecoration = "none";
+          }
+        });
+        doc.querySelectorAll('h2').forEach(h2 => {
+          h2.style.borderBottom = "1px solid #ccc";
+          h2.style.paddingBottom = "5px";
+        });
+        const allowedSections = ["概要", "分布", "利用", "種の保全状況評価"];
+        let sectionsHtml = [];
+        let contentContainer = doc.querySelector('#mw-content-text') || doc.body;
+        let children = Array.from(contentContainer.children);
+        let indexChild = 0;
+        let leadContent = [];
+        while (indexChild < children.length && children[indexChild].tagName !== "H2") {
+          leadContent.push(children[indexChild].outerHTML);
+          indexChild++;
+        }
+        if (leadContent.length > 0) {
+          let tempDiv = document.createElement("div");
+          tempDiv.innerHTML = leadContent.join("\n");
+          tempDiv.querySelectorAll("img").forEach(img => img.remove());
+          let sectionHtml = `<h2 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">概要</h2>\n` + tempDiv.innerHTML;
+          sectionsHtml.push(sectionHtml);
+        }
+        while (indexChild < children.length) {
+          if (children[indexChild].tagName === "H2") {
+            let headingText = children[indexChild].textContent.replace(/\[.*?\]/g, "").trim();
+            if (allowedSections.includes(headingText)) {
+              let headingHtml = `<h2 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">${headingText}</h2>`;
+              let sectionParts = [headingHtml];
+              indexChild++;
+              let sectionElements = [];
+              while (indexChild < children.length && children[indexChild].tagName !== "H2") {
+                sectionElements.push(children[indexChild]);
+                indexChild++;
+              }
+              if (headingText !== "種の保全状況評価") {
+                sectionElements.forEach(elem => {
+                  elem.querySelectorAll("img").forEach(img => img.remove());
+                });
+              }
+              sectionParts.push(sectionElements.map(el => el.outerHTML).join("\n"));
+              sectionsHtml.push(sectionParts.join("\n"));
+            } else {
+              indexChild++;
+              while (indexChild < children.length && children[indexChild].tagName !== "H2") {
+                indexChild++;
+              }
             }
+          } else {
+            indexChild++;
+          }
+        }
+        const newContent = sectionsHtml.join('<hr>');
+        wikipediaDiv.innerHTML = `<div style="max-width: 800px; margin: 0 auto;">${newContent}</div>`;
+      }
+    })
+    .catch(error => {
+      console.error(error);
+      wikipediaDiv.innerHTML = '<p>Wikipedia の内容を取得できませんでした。</p>';
+    });
+  if (window.detailMapInstance) {
+    window.detailMapInstance.remove();
+  }
+  window.detailMapInstance = L.map('detailMap', {
+    center: [pin.lat, pin.lng],
+    zoom: 13,
+    dragging: false,
+    touchZoom: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    boxZoom: false,
+    keyboard: false,
+    zoomControl: false,
+    attributionControl: false
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: ''
+  }).addTo(window.detailMapInstance);
+  let chosenIcon;
+  if (pin.kingdom === '動物界') {
+    chosenIcon = animalIcon;
+  } else if (pin.kingdom === '菌界') {
+    chosenIcon = fungiIcon;
+  } else {
+    chosenIcon = plantIcon;
+  }
+  L.marker([pin.lat, pin.lng], { icon: chosenIcon }).addTo(window.detailMapInstance);
+  setTimeout(() => {
+    window.detailMapInstance.invalidateSize();
+    window.detailMapInstance.setView([pin.lat, pin.lng], 13);
+  }, 100);
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('control-panel').style.display = 'none';
+  document.getElementById('data-list').style.display = 'none';
+  document.getElementById('grid').style.display = 'none';
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('editPage').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'block';
+}
+document.getElementById('backButton').addEventListener('click', function() {
+  document.getElementById('detailPage').style.display = 'none';
+  if (window.detailMapInstance) {
+    window.detailMapInstance.remove();
+    window.detailMapInstance = null;
+  }
+  showMap();
+});
 
-            function showactivity() {
-                document.getElementById('home').style.display = 'none';
-                document.getElementById('activity').style.display = 'block';
-            }
-               
-            
+/*************** 観察記録登録関連 ***************/
+document.getElementById('recordButton').addEventListener('click', () => {
+  const kingdom = document.getElementById('kingdom').value.trim();
+  const species = document.getElementById('species').value.trim();
+  const family = document.getElementById('family').value.trim();
+  const genus = document.getElementById('genus').value.trim();
+  const coordinates = document.getElementById('coordinates').value.trim();
+  const [lat, lng] = coordinates.split(',').map(coord => parseFloat(coord.trim()));
+  const discoveredDate = document.getElementById('discoveredDate').value.trim() || '未記録';
+  const locationText = document.getElementById('location').value.trim();
+  const conservation = document.getElementById('conservation').value.trim();
+  const details = document.getElementById('details').value.trim();
+  const imageFile = document.getElementById('image').files[0];
+  if (!species || isNaN(lat) || isNaN(lng)) {
+    alert('種名と座標、または発見日の入力を正しく行ってください。');
+    return;
+  }
+  const timestamp = new Date().toLocaleString();
+  if (imageFile) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      saveDataToFile(species, kingdom, family, genus, lat, lng, timestamp, e.target.result, discoveredDate, locationText, details, conservation);
+    };
+    reader.readAsDataURL(imageFile);
+  } else {
+    saveDataToFile(species, kingdom, family, genus, lat, lng, timestamp, null, discoveredDate, locationText, details, conservation);
+  }
+  updateMiniList();
+});
+function saveDataToFile(species, kingdom, family, genus, lat, lng, timestamp, imageData, discoveredDate, locationText, details, conservation) {
+  resetControlPanel();
+  const escapedDetails = details.replace(/\n/g, '\\n');
+  setTimeout(() => {
+    let data = `種名: ${species}\n` +
+               `界: ${kingdom || '未選択'}\n` +
+               `科: ${family || '未記録'}\n` +
+               `属: ${genus || '未記録'}\n` +
+               `座標: ${lat}, ${lng}\n` +
+               `発見日: ${discoveredDate}\n` +
+               `記録時間: ${timestamp}\n` +
+               `都道府県市町村: ${locationText}\n` +
+               `絶滅危惧種: ${conservation}\n` +
+               `詳細: ${escapedDetails}\n` +
+               `画像: ${imageData || 'なし'}`;
+     const blob = new Blob([data], { type: 'text/plain;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `plant_record_${Date.now()}.txt`;
+      link.click();
+  }, 500);
+  showMap();
+  addPin(species, family, genus, kingdom, lat, lng, imageData, timestamp, discoveredDate, locationText, details, conservation, true, undefined, true);
+}
+function resetControlPanel() {
+  document.getElementById('kingdom').value = '植物界';
+  document.querySelectorAll('#kingdomSelector button').forEach(btn => {
+    btn.classList.remove('active');
+    if(btn.getAttribute('data-kingdom') === '植物界') {
+      btn.classList.add('active');
+    }
+  });
+  document.getElementById('species').value = '';
+  document.getElementById('family').value = '';
+  document.getElementById('genus').value = '';
+  document.getElementById('coordinates').value = '';
+  document.getElementById('discoveredDate').value = '';
+  document.getElementById('location').value = '';
+  document.getElementById('details').value = '';
+  document.getElementById('image').value = '';
+  document.getElementById('imagePreview').innerHTML = '';
+  document.getElementById('conservation').value = '指定なし';
+}
 
-            document.getElementById('homebutton').addEventListener('click', showhome);
-            document.getElementById('activitybutton').addEventListener('click', showactivity);
+/*************** ファイルからのデータ読込 ***************/
+document.getElementById('fileInput').addEventListener('change', (event) => {
+  const files = event.target.files;
+  if (!files.length) return;
+  Array.from(files).forEach((file) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const content = e.target.result.split('\n');
+      const species = content[0].split(': ')[1]?.trim();
+      const kingdom = content[1].split(': ')[1]?.trim();
+      const family = content[2].split(': ')[1]?.trim();
+      const genus = content[3].split(': ')[1]?.trim();
+      const coordinates = content[4].split(': ')[1]?.trim().split(',');
+      const lat = parseFloat(coordinates[0]);
+      const lng = parseFloat(coordinates[1]);
+      const discoveredDate = content[5].split(': ')[1]?.trim();
+      const timestamp = content[6].split(': ')[1]?.trim();
+      const locationText = content[7].split(': ')[1]?.trim();
+      const conservation = content[8].split(': ')[1]?.trim();
+      const detailsRaw = content[9].split(': ')[1] || '';
+      const details = detailsRaw.replace(/\\n/g, '\n').trim();
+      const imageData = content[10].split(': ')[1]?.trim();
+      if (!species || isNaN(lat) || isNaN(lng)) {
+        alert(`${file.name} の形式が正しくありません。`);
+        return;
+      }
+      addPin(species, family, genus, kingdom, lat, lng, imageData === 'なし' ? null : imageData, timestamp, discoveredDate, locationText, details, conservation, true);
+    };
+    reader.readAsText(file);
+    updateMiniList();
+  });
+  setTimeout(() => {
+    updateMiniList();
+    showMap();
+  }, 2000);
+});
 
+/*************** 地図上のピン追加 ***************/
+function addPin(species, family, genus, kingdom, lat, lng, imageUrl, timestamp = new Date().toLocaleString(), discoveredDate = '未記録', locationText = '', details = '', conservation, persist = true, index = storedPins.length, autoOpen = false) {
+  let chosenIcon;
+  if(kingdom === '動物界') {
+    chosenIcon = animalIcon;
+  } else if(kingdom === '菌界') {
+    chosenIcon = fungiIcon;
+  } else {
+    chosenIcon = plantIcon;
+  }
+  const marker = L.marker([lat, lng], { icon: chosenIcon }).addTo(map);
+  let popupContent = `<strong>種名:</strong> ${species}<br>`;
+  if (conservation && conservation !== "指定なし") {
+    popupContent += `<strong>絶滅危惧種:</strong> ${conservation}<br>`;
+  }
+  popupContent += `<strong>座標:</strong> ${lat}, ${lng}<br>
+                   <strong>発見日:</strong> ${discoveredDate}<br>`;
+  if (imageUrl) {
+    popupContent += `<img src="${imageUrl}" style="max-width:220px; max-height:180px; display:block; margin-bottom:5px; cursor:pointer;" onclick="showImageModal('${imageUrl}')">`;
+  }
+  popupContent += `<button onclick="showDetail(${index})" style="padding:7px 15px; margin:0 10px; font-size:13px; background-color:#3498db; color:white; border:none; cursor:pointer; border-radius:5px; transition:background-color 0.3s ease;">詳細</button>`;
+  marker.bindPopup(popupContent);
+  pinMarkers[index] = marker;
+  map.setView([lat, lng], 12);
+  if (persist) {
+    storedPins.push({ species, family, genus, kingdom, lat, lng, imageUrl, timestamp, discoveredDate, location: locationText, details, conservation });
+    localStorage.setItem('pins', JSON.stringify(storedPins));
+  }
+  updateMiniList();
+  updateMapMarkers();
+  updateHeatmap();
+  if (autoOpen) {
+    marker.openPopup();
+  }
+}
 
-              
-        </script>
+/*************** ミニリスト更新・表示切替 ***************/
+document.getElementById('updateMiniListBtn').addEventListener('click', updateMiniList);
+document.getElementById('toggleMiniListBtn').addEventListener('click', function() {
+  const miniListItems = document.getElementById('miniListItems');
+  if (miniListItems.style.display === 'none' || getComputedStyle(miniListItems).display === 'none') {
+    miniListItems.style.display = 'block';
+    this.textContent = '非表示';
+    miniList.style.opacity = '1';
+  } else {
+    miniListItems.style.display = 'none';
+    this.textContent = '表示';
+    miniList.style.opacity = '0.4';
+  }
+});
+function updateMiniList() {
+  const miniListContainer = document.getElementById('miniList');
+  const miniListItems = document.getElementById('miniListItems');
+  if (!miniListItems) return;
+  miniListItems.innerHTML = '';
+  let filteredPins = storedPins.map((p, idx) => ({pin: p, originalIndex: idx}));
+  if (mapKingdomFilter) {
+    filteredPins = filteredPins.filter(o => o.pin.kingdom.toLowerCase() === mapKingdomFilter);
+  }
+  filteredPins = filteredPins.filter(o => {
+    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(o.pin.lat, o.pin.lng))) return false;
+    return true;
+  });
+  if (filteredPins.length === 0) {
+    miniListItems.innerHTML = '<div style="padding:5px; text-align:center;">該当する記録はありません</div>';
+  } else {
+    filteredPins.forEach((obj) => {
+      const pin = obj.pin;
+      const index = obj.originalIndex;
+      const item = document.createElement('div');
+      item.style.display = 'flex';
+      item.style.alignItems = 'center';
+      item.style.marginBottom = '5px';
+      item.style.cursor = 'pointer';
+      item.style.borderBottom = '1px solid #ccc';
+      item.style.padding = '0';
+      item.style.height = '90px';
+      if (pin.imageUrl && pin.imageUrl !== 'なし') {
+        const imgContainer = document.createElement('div');
+        imgContainer.style.width = '100px';
+        imgContainer.style.height = '97px';
+        imgContainer.style.flexShrink = '0';
+        imgContainer.style.overflow = 'hidden';
+        imgContainer.style.margin = '0';
+        imgContainer.style.padding = '0';
+        const img = document.createElement('img');
+        img.src = pin.imageUrl;
+        img.alt = pin.species;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        imgContainer.appendChild(img);
+        item.appendChild(imgContainer);
+      }
+      const textContainer = document.createElement('div');
+      textContainer.style.marginLeft = '5px';
+      textContainer.style.whiteSpace = 'nowrap';
+      textContainer.textContent = pin.species;
+      item.appendChild(textContainer);
+      item.addEventListener('click', () => {
+        showMap();
+        map.setView([pin.lat, pin.lng], 12);
+        setTimeout(() => {
+          if (pinMarkers[index]) {
+            pinMarkers[index].openPopup();
+          }
+        }, 300);
+      });
+      miniListItems.appendChild(item);
+    });
+  }
+  miniListContainer.style.display = 'block';
+}
 
-    </body>
+/*************** データリスト更新（エリア検索／界フィルター対応） ***************/
+function updateDataList() {
+  const tbody = document.getElementById('dataListTbody');
+  const keyword = document.getElementById('searchBar').value.trim().toLowerCase();
+  tbody.innerHTML = '';
+  storedPins.forEach((pin, index) => {
+    if (dataListKingdomFilter && pin.kingdom.toLowerCase() !== dataListKingdomFilter) return;
+    if (keyword) {
+      const searchFields = [
+        pin.species.toLowerCase(),
+        pin.family.toLowerCase(),
+        pin.kingdom.toLowerCase(),
+        `${pin.lat}, ${pin.lng}`
+      ];
+      if (!searchFields.some(field => field.includes(keyword))) return;
+    }
+    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.lat, pin.lng ? L.latLng(pin.lat, pin.lng) : L.latLng(0,0))) return;
+    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(pin.lat, pin.lng))) return;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><img src="${pin.imageUrl || ''}" alt="${pin.species}" style="max-width:140px; max-height:140px;"></td>
+      <td>${pin.species}</td>
+      <td>${pin.family || ''}</td>
+      <td>${pin.genus || ''}</td>
+      <td>${pin.lat}, ${pin.lng}</td>
+      <td>${pin.discoveredDate}</td>
+      <td>${pin.location || ''}</td>
+      <td>${pin.timestamp}</td>
+    `;
+    tr.addEventListener('click', () => {
+      showDetail(index);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+/*************** グリッド更新（エリア検索／界フィルター対応） ***************/
+function updateGrid() {
+  const gridContainer = document.getElementById('gridContainer');
+  const keyword = document.getElementById('gridSearchBar').value.trim().toLowerCase();
+  gridContainer.innerHTML = '';
+  storedPins.forEach((pin, index) => {
+    if (gridKingdomFilter && pin.kingdom.toLowerCase() !== gridKingdomFilter) return;
+    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(pin.lat, pin.lng))) return;
+    if (keyword) {
+      const searchFields = [
+        pin.species.toLowerCase(),
+        pin.family.toLowerCase(),
+        pin.kingdom.toLowerCase(),
+        `${pin.lat}, ${pin.lng}`
+      ];
+      if (!searchFields.some(field => field.includes(keyword))) return;
+    }
+    const card = document.createElement('div');
+    card.style.border = '1px solid #ddd';
+    card.style.borderRadius = '3px';
+    card.style.padding = '0px';
+    card.style.textAlign = 'center';
+    card.style.backgroundColor = '#f9f9f9';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.justifyContent = 'space-between';
+    card.style.height = '100%';
+    card.style.transition = 'background-color 0.3s ease';
+    card.addEventListener('mouseenter', () => {
+      card.style.backgroundColor = '#e0f7fa';
+      if(card.querySelector('img')){
+        card.querySelector('img').style.opacity = '0.7';
+      }
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.backgroundColor = '#f9f9f9';
+      if(card.querySelector('img')){
+        card.querySelector('img').style.opacity = '1';
+      }
+    });
+    let content = '';
+    if (pin.imageUrl) {
+      content += `<div style="width:100%; position:relative; padding-top:100%; overflow:hidden;">
+                    <img src="${pin.imageUrl}" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; cursor:pointer; transition:opacity 0.3s ease;">
+                  </div>`;
+    }
+    content += `<div style="margin-top:auto; padding:5px; background:#f9f9f9;">
+                  <strong style="font-size:18px;">${pin.species}</strong><br>
+                  <span style="font-size:14px; color:#555;">${pin.location || ''} ${pin.discoveredDate}</span>
+                </div>`;
+    card.addEventListener('click', () => {
+      showDetail(index);
+    });
+    card.innerHTML = content;
+    gridContainer.appendChild(card);
+  });
+}
+
+/*************** 画像プレビュー・モーダル ***************/
+document.getElementById('image').addEventListener('change', function(event) {
+  const file = event.target.files[0];
+  const previewContainer = document.getElementById('imagePreview');
+  previewContainer.innerHTML = '';
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.maxWidth = '200px';
+      img.style.maxHeight = '150px';
+      img.style.objectFit = 'contain';
+      previewContainer.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  }
+});
+function showImageModal(imageUrl) {
+  const modal = document.getElementById('imageModal');
+  const modalImage = document.getElementById('modalImage');
+  modalImage.src = imageUrl;
+  modal.style.display = 'flex';
+  modal.onclick = function() {
+    modal.style.display = 'none';
+  };
+}
+
+/*************** 検索バー（データリスト・グリッド） ***************/
+document.getElementById('searchBar').addEventListener('input', updateDataList);
+document.getElementById('gridSearchBar').addEventListener('input', updateGrid);
+
+/*************** 観察記録フォーム内 界選択ボタン ***************/
+document.querySelectorAll('#kingdomSelector button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#kingdomSelector button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('kingdom').value = this.getAttribute('data-kingdom');
+  });
+});
+/*************** データリスト・グリッド界フィルター ***************/
+document.querySelectorAll('#dataListKingdomFilter button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#dataListKingdomFilter button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    dataListKingdomFilter = this.getAttribute('data-kingdom').toLowerCase();
+    updateDataList();
+  });
+});
+document.querySelectorAll('#gridKingdomFilter button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#gridKingdomFilter button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    gridKingdomFilter = this.getAttribute('data-kingdom').toLowerCase();
+    updateGrid();
+  });
+});
+/*************** マップ左上のフィルター ***************/
+document.querySelectorAll('#mapKingdomFilter button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#mapKingdomFilter button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    mapKingdomFilter = this.getAttribute('data-kingdom');
+    if (mapKingdomFilter) {
+      mapKingdomFilter = mapKingdomFilter.toLowerCase();
+    }
+    updateMapMarkers();
+    updateMiniList();
+  });
+});
+/*************** マーカー更新処理 ***************/
+function updateMarker(index) {
+  const pin = storedPins[index];
+  if (pinMarkers[index]) {
+    let chosenIcon;
+    if (pin.kingdom === '動物界') {
+      chosenIcon = animalIcon;
+    } else if (pin.kingdom === '菌界') {
+      chosenIcon = fungiIcon;
+    } else {
+      chosenIcon = plantIcon;
+    }
+    pinMarkers[index].setIcon(chosenIcon);
+    pinMarkers[index].setLatLng([pin.lat, pin.lng]);
+    let popupContent = `<strong>種名:</strong> ${pin.species}<br>`;
+    if (pin.conservation && pin.conservation !== "指定なし") {
+      popupContent += `<strong>絶滅危惧種:</strong> ${pin.conservation}<br>`;
+    }
+    popupContent += `<strong>座標:</strong> ${pin.lat}, ${pin.lng}<br>
+                     <strong>発見日:</strong> ${pin.discoveredDate}<br>`;
+    if (pin.imageUrl) {
+      popupContent += `<img src="${pin.imageUrl}" style="max-width:220px; max-height:180px; display:block; margin-bottom:5px; cursor:pointer;" onclick="showImageModal('${pin.imageUrl}')">`;
+    }
+    popupContent += `<button onclick="showDetail(${index})" style="padding:7px 15px; margin:0 10px; font-size:13px; background-color:#00b31b; color:white; border:none; cursor:pointer; border-radius:5px; transition:background-color 0.3s ease;">詳細</button>`;
+    pinMarkers[index].bindPopup(popupContent);
+  }
+}
+function refreshAllMarkers() {
+  for (let i = 0; i < storedPins.length; i++) {
+    if (pinMarkers[i]) {
+      updateMarker(i);
+    }
+  }
+  updateMapMarkers();
+  alert('ピンが更新されました');
+}
+document.getElementById('refreshMarkersBtn').addEventListener('click', refreshAllMarkers);
+/*************** マップ上のピン表示更新（エリア検索／界フィルター対応） ***************/
+function updateMapMarkers() {
+  for (let i = 0; i < storedPins.length; i++) {
+    let marker = pinMarkers[i];
+    if (!marker) continue;
+    // ヒートマップ表示中はピンを非表示
+    if (heatmapOn) {
+      if (map.hasLayer(marker)) marker.remove();
+      continue;
+    }
+    let pinLatLng = L.latLng(storedPins[i].lat, storedPins[i].lng);
+    if (mapKingdomFilter && storedPins[i].kingdom.toLowerCase() !== mapKingdomFilter) {
+      if (map.hasLayer(marker)) marker.remove();
+      continue;
+    }
+    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, pinLatLng)) {
+      if (map.hasLayer(marker)) marker.remove();
+      continue;
+    }
+    if (!map.hasLayer(marker)) marker.addTo(map);
+  }
+}
+/*************** エリア検索ボタン ***************/
+document.getElementById('startAreaSearch').addEventListener('click', function() {
+  alert('マップ上で矩形または円形を描いてエリアを選択してください。描画後、自動的にフィルターが適用されます。');
+});
+document.getElementById('clearAreaSearch').addEventListener('click', function() {
+  areaFilterLayer = null;
+  if (drawnItems) drawnItems.clearLayers();
+  updateMapMarkers();
+  updateMiniList();
+  updateDataList();
+  updateGrid();
+  updateHeatmap();
+});
+
+/*************** ナビゲーションボタン ***************/
+document.getElementById('recordFormButton').addEventListener('click', showRecordForm);
+document.getElementById('mapButton').addEventListener('click', showMap);
+document.getElementById('dataButton').addEventListener('click', showDataList);
+document.getElementById('gridButton').addEventListener('click', showGrid);
+document.getElementById('editDataButton').addEventListener('click', showEditPage);
+document.getElementById('boardButton').addEventListener('click', showBoard);
+
+/*************** 編集画面関連 ***************/
+function updateEditRecordSelect() {
+  const select = document.getElementById('editRecordSelect');
+  select.innerHTML = '';
+  storedPins.forEach((pin, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.textContent = `${pin.species} (${pin.timestamp})`;
+    select.appendChild(option);
+  });
+  if (storedPins.length > 0) {
+    loadEditRecord(0);
+  }
+}
+function loadEditRecord(index) {
+  const pin = storedPins[index];
+  document.getElementById('editSpecies').value = pin.species;
+  document.getElementById('editFamily').value = pin.family || '';
+  document.getElementById('editGenus').value = pin.genus || '';
+  document.getElementById('editCoordinates').value = `${pin.lat}, ${pin.lng}`;
+  document.getElementById('editDiscoveredDate').value = pin.discoveredDate;
+  document.getElementById('editLocation').value = pin.location || '';
+  document.getElementById('editDetails').value = pin.details || '';
+  document.getElementById('editKingdom').value = pin.kingdom;
+  document.querySelectorAll('#editKingdomSelector button').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.getAttribute('data-kingdom') === pin.kingdom) {
+      btn.classList.add('active');
+    }
+  });
+  document.getElementById('editConservation').value = pin.conservation || "指定なし";
+  const preview = document.getElementById('editImagePreview');
+  preview.innerHTML = '';
+  if (pin.imageUrl) {
+    const img = document.createElement('img');
+    img.src = pin.imageUrl;
+    img.style.maxWidth = '200px';
+    img.style.maxHeight = '150px';
+    img.style.objectFit = 'contain';
+    img.style.position = "absolute";
+    img.style.bottom = "-250px";
+    preview.appendChild(img);
+  }
+}
+document.getElementById('editRecordSelect').addEventListener('change', function() {
+  loadEditRecord(parseInt(this.value));
+});
+document.querySelectorAll('#editKingdomSelector button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#editKingdomSelector button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('editKingdom').value = this.getAttribute('data-kingdom');
+  });
+});
+document.getElementById('editImage').addEventListener('change', function(event) {
+  const file = event.target.files[0];
+  const preview = document.getElementById('editImagePreview');
+  preview.innerHTML = '';
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.maxWidth = '200px';
+      img.style.maxHeight = '150px';
+      img.style.objectFit = 'contain';
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  }
+});
+document.getElementById('updateRecordButton').addEventListener('click', function() {
+  const select = document.getElementById('editRecordSelect');
+  const index = parseInt(select.value);
+  if (isNaN(index)) return;
+  const kingdom = document.getElementById('editKingdom').value.trim();
+  const species = document.getElementById('editSpecies').value.trim();
+  const family = document.getElementById('editFamily').value.trim();
+  const genus = document.getElementById('editGenus').value.trim();
+  const coordinates = document.getElementById('editCoordinates').value.trim();
+  const [lat, lng] = coordinates.split(',').map(coord => parseFloat(coord.trim()));
+  const discoveredDate = document.getElementById('editDiscoveredDate').value.trim() || '未記録';
+  const locationText = document.getElementById('editLocation').value.trim();
+  const details = document.getElementById('editDetails').value.trim();
+  const conservation = document.getElementById('editConservation').value.trim();
+  let imageData = storedPins[index].imageUrl;
+  const imageFile = document.getElementById('editImage').files[0];
+  if (imageFile) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      imageData = e.target.result;
+      updateRecord(index, kingdom, species, family, genus, lat, lng, discoveredDate, locationText, details, conservation, imageData);
+    };
+    reader.readAsDataURL(imageFile);
+  } else {
+    updateRecord(index, kingdom, species, family, genus, lat, lng, discoveredDate, locationText, details, conservation, imageData);
+  }
+});
+function updateRecord(index, kingdom, species, family, genus, lat, lng, discoveredDate, locationText, details, conservation, imageData) {
+  storedPins[index].kingdom = kingdom;
+  storedPins[index].species = species;
+  storedPins[index].family = family;
+  storedPins[index].genus = genus;
+  storedPins[index].lat = lat;
+  storedPins[index].lng = lng;
+  storedPins[index].discoveredDate = discoveredDate;
+  storedPins[index].location = locationText;
+  storedPins[index].details = details;
+  storedPins[index].imageUrl = imageData;
+  storedPins[index].conservation = conservation;
+  localStorage.setItem('pins', JSON.stringify(storedPins));
+  updateMarker(index);
+  updateMiniList();
+  updateDataList();
+  updateGrid();
+  alert('記録を更新しました');
+}
+
+/*************** ファイル保存ボタン（編集画面） ***************/
+document.getElementById('saveRecordAsTxtButton').addEventListener('click', function() {
+  const select = document.getElementById('editRecordSelect');
+  const index = parseInt(select.value);
+  if (isNaN(index)) return;
+  const pin = storedPins[index];
+  const escapedDetails = (pin.details || '').replace(/\n/g, '\\n');
+  let data = `種名: ${pin.species}\n` +
+             `界: ${pin.kingdom || '未選択'}\n` +
+             `科: ${pin.family || '未記録'}\n` +
+             `属: ${pin.genus || '未記録'}\n` +
+             `座標: ${pin.lat}, ${pin.lng}\n` +
+             `発見日: ${pin.discoveredDate}\n` +
+             `記録時間: ${pin.timestamp}\n` +
+             `都道府県市町村: ${pin.location || ''}\n` +
+             `絶滅危惧種: ${pin.conservation || '指定なし'}\n` +
+             `詳細: ${escapedDetails}\n` +
+             `画像: ${pin.imageUrl || 'なし'}`;
+  const blob = new Blob([data], { type: 'text/plain' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `edited_record_${Date.now()}.txt`;
+  link.click();
+});
+
+/*************** ヒートマップ表示ボタン ***************/
+document.getElementById('heatmapButton').addEventListener('click', function() {
+  heatmapOn = !heatmapOn;
+  if (heatmapOn) {
+    this.textContent = 'ヒートマップ非表示';
+  } else {
+    this.textContent = 'ヒートマップ表示';
+  }
+  updateHeatmap();
+  updateMapMarkers();
+});
+
+/*************** 初期化 ***************/
+initializeMap();
+showMap();
+</script>
+</body>
 </html>
