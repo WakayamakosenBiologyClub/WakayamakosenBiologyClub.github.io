@@ -1,698 +1,334 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>生物記録:BiologyRecord</title>
-  <!-- Leaflet 本体 -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- Leaflet.draw 用スタイル -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-  <link rel="apple-touch-icon" href="apple-touch-icon-180x180.png" sizes="180x180">
-  <link rel="icon" type="image/png" href="android-chrome-192x192.png" sizes="192x192">
-  <style>
-    /* Google Fonts: Roboto */
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>生物記録</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gd:#1B4332;--gm:#52B788;--gl:#95D5B2;
+  --cream:#FEFAE0;--soil:#D4A373;
+  --text:#1a1a1a;--tl:#666;--white:#fff;
+  --nav:64px;--hdr:52px;--r:12px;
+  --sh:0 2px 12px rgba(0,0,0,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--cream);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
 
-    /* ベーススタイル */
-    body {
-      margin: 0;
-      font-family: 'Roboto', sans-serif;
-      background-color: #f5f7fa;
-      color: #333;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
+/* HEADER */
+#hdr{height:var(--hdr);min-height:var(--hdr);background:var(--gd);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;letter-spacing:.05em;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0;z-index:100;}
+#hdr-t{display:flex;align-items:center;gap:8px;}
+#hdr-t svg{width:22px;height:22px;fill:var(--gl);}
 
-    /* ナビゲーションバー内のファイル読み込み部分を非表示 */
-    #loadSection input[type="file"] {
-      display: none;
-    }
+/* PAGES */
+#pages{flex:1;overflow:hidden;position:relative;}
+.page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;}
+.page.active{display:block;}
+#map-page{overflow:hidden;}
 
-    /* ヘッダー */
-    #header {
-      background: linear-gradient(90deg, #3498db, #2ecc71);
-      color: #fff;
-      padding: 20px;
-      text-align: center;
-      font-size: 2rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+/* NAV */
+#nav{height:var(--nav);min-height:var(--nav);background:var(--gd);display:flex;align-items:stretch;box-shadow:0 -2px 12px rgba(0,0,0,.25);flex-shrink:0;z-index:100;}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.45);font-size:.58rem;font-family:inherit;transition:color .2s;padding:0;position:relative;}
+.nb svg{width:24px;height:24px;transition:transform .2s;}
+.nb.active{color:var(--gl);}
+.nb.active svg{transform:scale(1.15);}
+.nb.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:32px;height:3px;background:var(--gl);border-radius:0 0 4px 4px;}
 
-    /* ナビゲーションバー */
-    #nav-bar {
-      display: flex;
-      justify-content: center;
-      background-color: #fff;
-      padding: 10px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      flex-wrap: wrap;
-    }
-    #nav-bar button, #nav-bar label.file-icon {
-      padding: 10px 20px;
-      margin: 5px;
-      font-size: 1rem;
-      background-color: #3498db;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-      transition: background-color 0.3s ease, transform 0.2s;
-    }
-    #nav-bar button:hover, #nav-bar label.file-icon:hover {
-      background-color: #2980b9;
-      transform: translateY(-2px);
-    }
+/* MAP */
+#map-page{padding:0;display:none;}
+#map-page.active{display:flex;flex-direction:row;}
+#map{flex:1;height:100%;}
 
-    /* 共通パネル（入力フォーム、リスト、グリッド、詳細、編集、ボード） */
-    #control-panel, #data-list, #grid, #detailPage, #editPage, #board {
-      background-color: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 20px;
-      margin: 20px auto;
-      overflow-y: auto;
-    }
-    /* 入力フォーム・編集・詳細パネルは幅を広めに */
-    #control-panel, #editPage, #detailPage {
-      width: 90%;
-      max-width: 800px;
-    }
-    #data-list {
-      width: 90%;
-      max-width: 1000px;
-    }
+/* MAP サイドミニリスト（デスクトップのみ） */
+#map-minilist{display:none;width:260px;min-width:260px;background:#fff;border-left:1px solid #ddd;overflow-y:auto;flex-shrink:0;}
+@media(min-width:900px){
+  #map-minilist{display:flex;flex-direction:column;}
+}
+#map-minilist-hdr{padding:10px 12px 8px;background:var(--gd);color:#fff;font-size:.78rem;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+#map-minilist-hdr svg{width:14px;height:14px;fill:var(--gl);}
+#map-minilist-body{flex:1;overflow-y:auto;}
+.ml-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .15s;}
+.ml-item:hover{background:#f5faf7;}
+.ml-img{width:44px;height:44px;border-radius:6px;flex-shrink:0;background:#e8f5ee;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.ml-img img{width:100%;height:100%;object-fit:cover;}
+.ml-img svg{width:20px;height:20px;fill:#c8e6c9;}
+.ml-name{font-size:.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ml-date{font-size:.68rem;color:var(--tl);margin-top:1px;}
+.ml-badge{font-size:.58rem;padding:1px 5px;border-radius:8px;font-weight:700;flex-shrink:0;margin-left:auto;}
 
-    /* 入力フォームの各要素 */
-    #control-panel label,
-    #control-panel input[type="text"],
-    #control-panel textarea,
-    #control-panel select,
-    #editPage label,
-    #editPage input[type="text"],
-    #editPage textarea,
-    #editPage select {
-      width: 100%;
-      margin-bottom: 15px;
-      font-size: 1rem;
-      padding: 12px;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
+/* マップ上フローティングUI */
+#map-fab{position:absolute;bottom:16px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.fab-btn{width:44px;height:44px;border-radius:22px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:opacity .2s;}
+.fab-btn svg{width:20px;height:20px;pointer-events:none;}
+.fab-main{background:var(--gd);color:#fff;}
+.fab-main svg{fill:#fff;}
+.fab-sub{background:#fff;color:var(--gd);font-size:.65rem;font-family:inherit;font-weight:700;width:auto;padding:0 12px;border-radius:20px;gap:6px;}
+.fab-sub svg{fill:var(--gd);width:16px;height:16px;}
+.fab-sub.on{background:var(--gm);color:#fff;}
+.fab-sub.on svg{fill:#fff;}
+#map-filter-panel{position:absolute;bottom:72px;right:12px;z-index:1000;background:rgba(27,67,50,.95);border-radius:var(--r);padding:12px;display:none;flex-direction:column;gap:8px;min-width:200px;box-shadow:var(--sh);}
+#map-filter-panel.open{display:flex;}
+.fp-label{color:rgba(255,255,255,.6);font-size:.68rem;letter-spacing:.05em;}
+.fp-row{display:flex;gap:6px;flex-wrap:wrap;}
+.fp-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 10px;font-size:.72rem;font-family:inherit;cursor:pointer;white-space:nowrap;}
+.fp-btn.active{background:var(--gm);border-color:var(--gm);}
+.kdot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
+.dp{background:#52b788;}.da{background:#e76f51;}.df{background:#9b72cf;}
 
-    /* 横並びグループ */
-    .horizontal-group {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-    .horizontal-group > div {
-      flex: 1;
-    }
+/* Leaflet layer control positioning */
+.leaflet-top.leaflet-right{top:10px;}
 
-    /* ファイル入力（非表示） */
-    #control-panel input[type="file"],
-    #editPage input[type="file"] {
-      display: none;
-    }
+/* FORM */
+#form-page{background:var(--cream);padding:16px 16px 24px;}
+.ks{display:flex;gap:8px;margin-bottom:16px;}
+.kb{flex:1;padding:10px 4px;border:2px solid transparent;border-radius:10px;font-size:.8rem;font-family:inherit;font-weight:500;cursor:pointer;background:#fff;color:var(--tl);}
+.kb[data-k="植物界"].active{background:#e8f5ee;border-color:#52B788;color:#1B4332;}
+.kb[data-k="動物界"].active{background:#fdf0ec;border-color:#e76f51;color:#8b3a1e;}
+.kb[data-k="菌界"].active{background:#f3eefa;border-color:#9b72cf;color:#4a2d7a;}
+.fs{background:#fff;border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.fs h3{font-size:.78rem;color:var(--tl);margin-bottom:12px;letter-spacing:.06em;text-transform:uppercase;}
+.fi{margin-bottom:12px;}
+.fi:last-child{margin-bottom:0;}
+.fi label{display:block;font-size:.78rem;color:var(--tl);margin-bottom:5px;font-weight:500;}
+.fi input,.fi textarea,.fi select{width:100%;padding:11px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem;font-family:inherit;background:var(--cream);color:var(--text);appearance:none;transition:border-color .2s;}
+.fi input:focus,.fi textarea:focus,.fi select:focus{outline:none;border-color:var(--gm);}
+.fi textarea{height:80px;resize:none;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ipb{width:100%;padding:12px;border-radius:8px;border:2px dashed #c8e6c9;background:#f1f8f4;color:var(--gd);font-size:.85rem;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+.ipb svg{width:18px;height:18px;}
+/* multi-image preview strip */
+#imgs-preview{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:4px;}
+.prev-thumb{position:relative;flex-shrink:0;}
+.prev-thumb img{width:80px;height:80px;object-fit:cover;border-radius:8px;display:block;}
+.prev-thumb .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:10px;background:#e53935;color:#fff;border:none;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.rbtn{width:100%;padding:16px;background:var(--gd);color:#fff;border:none;border-radius:var(--r);font-size:1rem;font-weight:700;font-family:inherit;cursor:pointer;margin-top:8px;box-shadow:0 4px 16px rgba(27,67,50,.35);display:flex;align-items:center;justify-content:center;gap:8px;}
+.rbtn:active{opacity:.85;}
+.rbtn svg{width:20px;height:20px;}
 
-    /* フォーム内ボタン */
-    #control-panel button, #editPage button {
-      width: 100%;
-      padding: 14px;
-      font-size: 1rem;
-      background-color: #2ecc71;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-      transition: background-color 0.3s ease;
-    }
-    #control-panel button:hover, #editPage button:hover {
-      background-color: #27ae60;
-    }
+/* 座標・市町村読み込みボタン行 */
+.coord-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.coord-btn{flex:1;min-width:0;padding:8px 6px;background:#e8f5ee;border:1.5px solid #c8e6c9;border-radius:8px;font-size:.72rem;font-family:inherit;font-weight:600;color:var(--gd);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;}
+.coord-btn svg{width:13px;height:13px;flex-shrink:0;}
+.coord-msg{font-size:.72rem;color:var(--tl);margin-top:4px;min-height:16px;}
+.coord-msg.err{color:#e53935;}
 
-    /* ボタン行 */
-    .button-row {
-      display: flex;
-      gap: 15px;
-    }
-    .button-row > * {
-      flex: 1;
-    }
+/* LIST */
+#list-page{background:#f0f4f1;padding-bottom:8px;}
+.lh{background:#fff;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);position:sticky;top:0;z-index:10;}
+.sb{display:flex;align-items:center;gap:8px;background:var(--cream);border:1.5px solid #ddd;border-radius:20px;padding:8px 14px;margin-bottom:10px;}
+.sb svg{width:16px;height:16px;fill:#aaa;flex-shrink:0;}
+.sb input{border:none;background:none;flex:1;font-size:.88rem;font-family:inherit;color:var(--text);}
+.sb input:focus{outline:none;}
+.ft{display:flex;gap:6px;}
+.ftb{flex:1;padding:6px 0;border:none;border-radius:16px;font-size:.72rem;font-family:inherit;font-weight:500;cursor:pointer;background:#f0f0f0;color:var(--tl);}
+.ftb.active{background:var(--gd);color:#fff;}
+#list-items{padding:8px 12px;}
+.lc{background:#fff;border-radius:10px;display:flex;align-items:center;gap:12px;padding:10px;margin-bottom:8px;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;}
+.lc:active{opacity:.85;}
+.lci{width:64px;height:64px;border-radius:8px;flex-shrink:0;background:#e8f5ee;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.lci img{width:100%;height:100%;object-fit:cover;}
+.lci svg{width:28px;height:28px;fill:#c8e6c9;}
+.lc-info{flex:1;min-width:0;}
+.lc-name{font-size:.95rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lc-date{font-size:.75rem;color:var(--tl);}
+/* デスクトップ用リスト追加情報 */
+.lc-extra{display:none;font-size:.72rem;color:var(--tl);margin-top:3px;}
+@media(min-width:900px){
+  .lc-extra{display:block;}
+  .lci{width:80px;height:80px;}
+  .lc-name{font-size:1rem;}
+  #list-items{padding:10px 20px;}
+  .lc{padding:14px;}
+}
+.badge{font-size:.62rem;padding:2px 7px;border-radius:10px;font-weight:700;flex-shrink:0;}
+.bp{background:#e8f5ee;color:#1B4332;}.ba{background:#fdf0ec;color:#8b3a1e;}.bf{background:#f3eefa;color:#4a2d7a;}
+.empty{text-align:center;padding:60px 20px;color:var(--tl);}
+.empty svg{width:56px;height:56px;fill:#c8e6c9;margin-bottom:16px;}
 
-    /* ファイルアイコン */
-    .file-icon {
-      display: inline-block;
-      padding: 10px 20px;
-      font-size: 1rem;
-      background-color: #3498db;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-      transition: background-color 0.3s ease;
-      text-align: center;
-    }
-    .file-icon:hover {
-      background-color: #2980b9;
-    }
-    .file-icon img {
-      vertical-align: middle;
-      margin-right: 8px;
-      max-width: 24px;
-      max-height: 24px;
-    }
+/* GRID */
+#grid-page{background:#f0f4f1;padding-bottom:8px;}
+#grid-items{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 12px;}
+@media(min-width:700px){#grid-items{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:1000px){#grid-items{grid-template-columns:repeat(4,1fr);padding:12px 20px;}}
+.gc{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;}
+.gc:active{opacity:.85;}
+.gc-img{width:100%;aspect-ratio:1;object-fit:cover;background:#e8f5ee;display:flex;align-items:center;justify-content:center;}
+.gc-img img{width:100%;height:100%;object-fit:cover;}
+.gc-img svg{width:40px;height:40px;fill:#c8e6c9;}
+.gc-info{padding:8px 10px;}
+.gc-name{font-size:.88rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gc-date{font-size:.7rem;color:var(--tl);}
 
-    /* 地図表示エリア */
-    #map {
-      width: 100%;
-      height: calc(100vh - 140px);
-      position: relative;
-      border-top: 2px solid #3498db;
-    }
-    /* 地図上のコントロール */
-    #areaSearchControl {
-      position: absolute;
-      top: 50px;
-      left: 50px;
-      z-index: 2000;
-    }
-    #areaSearchControl button {
-      padding: 8px 12px;
-      margin: 5px;
-      background-color: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: background-color 0.3s;
-    }
-    #areaSearchControl button:hover {
-      background-color: #2980b9;
-    }
+/* DETAIL */
+#detail-page{background:var(--cream);}
+.dbk{position:sticky;top:0;z-index:10;background:var(--gd);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:.9rem;font-weight:700;cursor:pointer;border:none;width:100%;font-family:inherit;}
+.dbk svg{width:20px;height:20px;fill:currentColor;}
+/* Photo swiper */
+#detail-swiper{position:relative;width:100%;overflow:hidden;background:#000;touch-action:pan-y;}
+#swiper-track{display:flex;transition:transform .3s ease;}
+.swiper-slide{flex-shrink:0;width:100%;}
+.swiper-slide img{width:100%;max-height:280px;object-fit:cover;display:block;}
+#swiper-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px;}
+.sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);}
+.sdot.active{background:#fff;}
+#swiper-prev,#swiper-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+#swiper-prev{left:6px;}#swiper-next{right:6px;}
+.dbody{padding:16px;}
+.dsp{font-size:1.4rem;font-weight:700;margin-bottom:4px;line-height:1.3;}
+.dc{display:inline-block;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:14px;}
+.cn{display:none;}.cnt{background:#fff9c4;color:#827717;}.cnv{background:#ffe0b2;color:#bf360c;}
+.cne{background:#ffccbc;color:#b71c1c;}.cnc{background:#f8bbd0;color:#880e4f;}.cnd{background:#e0e0e0;color:#424242;}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.di{background:#fff;border-radius:8px;padding:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.di-l{font-size:.68rem;color:var(--tl);margin-bottom:2px;}
+.di-v{font-size:.85rem;font-weight:600;}
+.di.full{grid-column:1/-1;}
+.dnotes{background:#fff;border-radius:8px;padding:14px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.dnotes-l{font-size:.7rem;color:var(--tl);margin-bottom:6px;}
+.dnotes-t{font-size:.88rem;line-height:1.65;white-space:pre-wrap;}
+#dmap-box{width:100%;height:220px;border-radius:8px;overflow:hidden;margin-bottom:16px;}
+.wiki-s{background:#fff;border-radius:8px;padding:14px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.wiki-s h4{font-size:.78rem;color:var(--tl);margin-bottom:10px;}
+.wiki-c{font-size:.85rem;line-height:1.7;}
+.wiki-c h2{font-size:.95rem;margin:12px 0 6px;border-bottom:1px solid #eee;padding-bottom:4px;}
 
-    /* マップフィルター：界選択ボタン */
-    #mapKingdomFilter {
-      position: absolute;
-      top: 8px;
-      left: 52px;
-      z-index: 2000;
-    }
-    #mapKingdomFilter button {
-      margin: 3px;
-      padding: 8px 12px;
-      font-size: 0.9rem;
-      background-color: #ecf0f1;
-      color: #333;
-      border: 1px solid #bdc3c7;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    #mapKingdomFilter button.active {
-      background-color: #3498db;
-      color: #fff;
-      border-color: #2980b9;
-    }
-    #mapKingdomFilter button:hover {
-      background-color: #2980b9;
-      color: #fff;
-    }
+/* EDIT */
+#edit-page{background:var(--cream);padding:0;}
+.eh{background:var(--gd);color:#fff;padding:14px 16px;font-size:1rem;font-weight:700;}
+.eb{padding:16px 16px 24px;}
+.esw{background:#fff;border-radius:var(--r);padding:14px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.esw label{font-size:.78rem;color:var(--tl);display:block;margin-bottom:6px;}
+.esw select{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.88rem;font-family:inherit;background:var(--cream);color:var(--text);appearance:none;}
+.ea{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+.eab{padding:13px;border:none;border-radius:10px;font-size:.88rem;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+.eab:active{opacity:.8;}
+.eu{background:var(--gd);color:#fff;}.es2{background:var(--soil);color:#fff;}
+.ed{background:#e53935;color:#fff;grid-column:1/-1;}
+.eab svg{width:16px;height:16px;fill:currentColor;}
+#e-imgs-preview{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:4px;}
 
-    /* ヒートマップコントロール */
-    #heatmapControl {
-      position: absolute;
-      top: 12px;
-      left: 355px;
-      z-index: 2000;
-    }
-    #heatmapControl button {
-      padding: 8px 12px;
-      font-size: 0.9rem;
-      background-color: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    #heatmapControl button:hover {
-      background-color: #2980b9;
-    }
+/* DATA PAGE */
+#data-page{background:var(--cream);padding:16px;}
+.dc2{background:#fff;border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.dc2 h3{font-size:.85rem;font-weight:700;margin-bottom:6px;color:var(--gd);}
+.dc2 p{font-size:.78rem;color:var(--tl);line-height:1.6;margin-bottom:12px;}
+.dfb{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border:none;border-radius:10px;font-size:.9rem;font-weight:700;font-family:inherit;cursor:pointer;}
+.dfb svg{width:18px;height:18px;fill:currentColor;}
+.bl{background:var(--gd);color:#fff;}.bm{background:var(--gm);color:#fff;}
+.dstat{background:var(--gd);border-radius:var(--r);padding:16px;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:14px;}
+.dsn{font-size:1.8rem;font-weight:700;}.dsl{font-size:.75rem;opacity:.7;}
 
-    /* データリスト（テーブル表示） */
-    #data-list table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    #data-list th, #data-list td {
-      padding: 12px;
-      text-align: center;
-      border-bottom: 1px solid #ecf0f1;
-    }
-    #data-list th {
-      background-color: #ecf0f1;
-      font-weight: 500;
-    }
-    #data-list tr:hover {
-      background-color: #f1f1f1;
-      cursor: pointer;
-    }
+/* MODAL */
+#img-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);align-items:center;justify-content:center;}
+#img-modal.open{display:flex;}
+#img-modal img{max-width:96vw;max-height:92vh;object-fit:contain;border-radius:8px;}
 
-    /* グリッド表示：横4項目 */
-    #grid {
-      text-align: center;
-    }
-    #gridContainer {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      margin: auto;
-    }
+/* TOAST */
+#toast{position:fixed;bottom:calc(var(--nav) + 14px);left:50%;transform:translateX(-50%) translateY(10px);background:var(--gd);color:#fff;padding:10px 20px;border-radius:20px;font-size:.82rem;box-shadow:var(--sh);z-index:5000;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-    /* 画像モーダル */
-    #imageModal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.8);
-      align-items: center;
-      justify-content: center;
-      z-index: 3000;
-    }
-    #imageModal img {
-      max-width: 90%;
-      max-height: 90%;
-      object-fit: contain;
-      cursor: pointer;
-      border: 5px solid #fff;
-      border-radius: 8px;
-    }
-
-    /* ミニリスト */
-    #miniList {
-      position: absolute;
-      top: 100px;
-      right: 30px;
-      background: rgba(255,255,255,0.95);
-      border-radius: 8px;
-      height: 500px;
-      overflow-y: auto;
-      z-index: 2000;
-      width: 350px;
-      display: none;
-      font-size: 1rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    #miniListControls {
-      display: flex;
-      justify-content: center;
-      padding: 10px;
-      background-color: #ecf0f1;
-      align-items: center;
-    }
-    #miniListControls button {
-      padding: 8px 12px;
-      font-size: 0.9rem;
-      border: none;
-      border-radius: 3px;
-      background-color: #3498db;
-      color: #fff;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    #miniListControls button:hover {
-      background-color: #2980b9;
-    }
-
-    /* 詳細ページ */
-    #detailPage {
-      width: 90%;
-      max-width: 1000px;
-    }
-    #backButton {
-      margin-bottom: 15px;
-      padding: 10px 15px;
-      font-size: 1rem;
-      background-color: #3498db;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-      transition: background-color 0.3s;
-    }
-    #backButton:hover {
-      background-color: #2980b9;
-    }
-    #detailSpecies {
-      font-size: 2rem;
-      margin: 10px 0;
-    }
-    #detailConservation, #detailInfo p {
-      font-size: 1rem;
-      margin: 10px 0;
-      line-height: 1.5;
-    }
-    /* 詳細ページの画像を全幅表示・自動高さ調整 */
-    #detailImage {
-      margin-bottom: 20px;
-    }
-    #detailImage img {
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-    }
-    #detailMap {
-      width: 100%;
-      height: 300px;
-      margin-top: 10px;
-      border: 3px solid #bdc3c7;
-      border-radius: 4px;
-      pointer-events: auto; /* 操作可能に変更 */
-    }
-
-    /* 編集ページ */
-    #editPage {
-      width: 90%;
-      max-width: 800px;
-    }
-    /* 編集ページ内ボタン（クラス化） */
-    .edit-button button, .edit-button label {
-      padding: 10px 15px;
-      font-size: 1rem;
-      background-color: #2ecc71;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-      transition: background-color 0.3s;
-      margin-top: 5px;
-    }
-    .edit-button button:hover, .edit-button label:hover {
-      background-color: #27ae60;
-    }
-
-    /* ボード表示 */
-    #board {
-      position: relative;
-      width: 100%;
-      height: calc(100vh - 140px);
-      background-color: #fff;
-      overflow: hidden;
-      margin: 20px auto;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .board-image {
-      position: absolute;
-      cursor: pointer;
-      transition: transform 0.3s ease;
-    }
-    .board-image:hover {
-      transform: scale(1.05);
-    }
-
-      /* 観察記録用フォーム */
-      #control-panel {
-        display: none;
-        padding: 20px;
-        background-color: #efeeee;
-        flex-direction: column;
-        align-items: stretch;
-      }
-      /* 各フォーム要素 */
-      #control-panel label,
-      #control-panel input[type="text"],
-      #control-panel textarea {
-        width: 100%;
-        margin-bottom: 10px;
-        font-size: 16px;
-        box-sizing: border-box;
-        padding: 8px;
-      }
-      /* 科・属を横並びに */
-      .horizontal-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 10px;
-      }
-      .horizontal-group > div {
-        flex: 1;
-      }
-      /* 画像選択用inputは非表示 */
-      #control-panel input[type="file"] {
-        display: none;
-      }
-      /* 記録ボタン */
-      #control-panel button {
-        width: 100%;
-        margin-bottom: 10px;
-        font-size: 16px;
-        color: white;
-        border: none;
-        cursor: pointer;
-        border-radius: 5px;
-        transition: background-color 0.3s ease;
-        padding: 8px 12px;
-      }
-
-      /* 横並びの行 */
-      .button-row {
-        display: flex;
-        gap: 10px;
-      }
-      .button-row > * {
-        width: auto;
-      }
-
-      .kingdombutton {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 10px;
-      }
-      .kingdombutton > div {
-        flex: 1;
-      }
-
-      #kingdomSelector button.active {
-        background-color: #458cd8;
-    }
-
-    #editPage {
-      display: none;
-      padding: 25px;
-      background-color: #efeeee;
-      flex-direction: column;
-      overflow-y: auto;
-      height: calc(100vh - 100px);
-      position: relative;
-    }
-    #editPage p {
-      text-align: center;
-    }
-    #editPage label,
-    #editPage input[type="text"],
-    #editPage textarea,
-    #editPage select {
-      width: 100%;
-      margin-bottom: 10px;
-      font-size: 16px;
-      box-sizing: border-box;
-      padding: 6px;
-    }
-    /* 編集画面用界選択ボタン */
-    #editKingdomSelector button {
-      margin: 0 5px;
-      padding: 4px 8px;
-      font-size: 12px;
-
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-      transition: background-color 0.3s ease;
-    }
-    #editKingdomSelector button.active {
-      background-color: #2980b9;
-    }
-
-    /* 編集画面内のファイル入力は非表示 */
-    #editImage {
-      display: none;
-    }
-    /* 編集画面の詳細テキストエリアを強制的に大きく */
-    #editPage #editDetails {
-      height: 200px !important;
-    }
-    .edit-button {
-      text-align: center;
-    }
-
-    #detailPage {
-      display: none;
-      padding: 20px;
-      box-sizing: border-box;
-      height: calc(100vh - 100px);
-      overflow-y: auto;
-      background-color: #fff;
-    }
-    /* 詳細ページ内のレイアウト */
-    #detailPage .detail-container {
-      display: flex;
-      flex-direction: row;
-      align-items: flex-start;
-      gap: 20px;
-    }
-    /* 画像部分は固定幅 */
-    #detailImage {
-      flex: 0 0 450px;
-    }
-    #detailImage img {
-      max-width: 100%;
-    }
-    /* テキスト情報は右側に */
-    #detailInfo {
-      flex: 1;
-    }
-    /* 詳細ページのテキスト情報の段落 */
-    #detailInfo p {
-      margin: 5px 0;
-      font-size: 16px;
-      word-wrap: break-word;
-      white-space: pre-wrap;
-    }
-
-    #detailInfoh2 {
-      text-align: center;
-  }
-
-  #dataListKingdomFilter, #gridKingdomFilter {
-    text-align: center;
-    margin-bottom: 10px;
-  }
-  #dataListKingdomFilter button, #gridKingdomFilter button {
-    margin: 0 5px;
-    padding: 4px 8px;
-    font-size: 12px;
-    background-color: #ccc;
-    color: #333;
-    border: 1px solid #aaa;
-    border-radius: 3px;
-    cursor: pointer;
-  }
-  #dataListKingdomFilter button.active, #gridKingdomFilter button.active {
-    background-color: #3498db;
-    color: white;
-    border-color: #2980b9;
-  }
-  .kingdombutton {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .kingdombutton > div {
-    flex: 1;
-  }
-
-  #editPage input{
-    border: 1px solid #000;
-  }
-
-  #control-panel input{
-    border: 1px solid #000;
-  }
-
-   /* Hide file input text next to the label */
-  #loadBoundarySection input[type="file"] {
-    display: none;
-  }
-
-  </style>
-
-
+/* Leaflet overrides */
+.leaflet-control-zoom{border-radius:8px!important;overflow:hidden;}
+.leaflet-touch .leaflet-control-zoom-in,.leaflet-touch .leaflet-control-zoom-out{font-size:20px!important;line-height:34px!important;width:34px!important;height:34px!important;}
+</style>
 </head>
 <body>
-  <!-- 画像モーダル -->
-  <div id="imageModal">
-    <img id="modalImage">
+
+<div id="hdr">
+  <div id="hdr-t">
+    <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+    生物記録システム
   </div>
-
-  <div id="header">生物記録システム</div>
-
-  <div id="nav-bar">
-    <div id="loadSection" align="center">
-      <label for="fileInput" class="file-icon" align="center">データ読込</label>
-      <input type="file" id="fileInput" accept=".txt" multiple>
-    </div>
-    <!-- 既存の画面切替ボタン -->
-    <button id="editDataButton" type="button">データ編集</button>
-    <button id="recordFormButton" type="button">観察記録</button>
-    <div id="loadBoundarySection" align="center">
-  <label for="boundaryInput" class="file-icon">境界読込</label>
-  <input type="file" id="boundaryInput" accept=".json,.topojson" multiple>
 </div>
-    <button id="mapButton" type="button" ><img src="images/mappin.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">マップ</button>
-    <button id="dataButton" type="button"><img src="images/list.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">リスト</button>
-    <button id="gridButton" type="button"><img src="images/grid.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">グリッド</button>
-    <button id="boardButton" type="button"><img src="images/board.png" alt="ピンアイコン" style="height: 20px; vertical-align: middle; margin-right: 18px; margin-bottom: 2px;">ボード</button>
 
+<div id="pages">
+
+<!-- MAP -->
+<div id="map-page" class="page">
+  <div id="map"></div>
+  <!-- デスクトップ用サイドミニリスト -->
+  <div id="map-minilist">
+    <div id="map-minilist-hdr">
+      <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+      観察記録
+    </div>
+    <div id="map-minilist-body"></div>
+  </div>
+  <!-- フローティングFAB群 -->
+  <div id="map-fab">
+    <button class="fab-btn fab-main" onclick="toggleFilterPanel()" title="フィルター">
+      <svg viewBox="0 0 24 24"><path d="M3 4h18v2l-7 7v7l-4-2v-5L3 6z" fill="#fff"/></svg>
+    </button>
+  </div>
+  <!-- フィルターパネル -->
+  <div id="map-filter-panel">
+    <div class="fp-label">界フィルター</div>
+    <div class="fp-row" id="map-kf">
+      <button class="fp-btn active" data-k="">すべて</button>
+      <button class="fp-btn" data-k="植物界"><span class="kdot dp"></span>植物</button>
+      <button class="fp-btn" data-k="動物界"><span class="kdot da"></span>動物</button>
+      <button class="fp-btn" data-k="菌界"><span class="kdot df"></span>菌類</button>
+    </div>
+    <div class="fp-label">表示</div>
+    <div class="fp-row">
+      <button class="fab-sub fp-btn" id="hm-btn" onclick="toggleHeatmap()">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:currentColor;vertical-align:middle;margin-right:3px"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74C19 5.13 15.87 2 12 2zm-1 15v-2h2v2h-2zm1-4c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>
+        ヒートマップ
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FORM -->
+<div id="form-page" class="page">
+  <!-- 写真セクションを最上部に -->
+  <div class="fs" style="margin-bottom:12px;">
+    <h3>写真（複数可）</h3>
+    <div class="fi">
+      <label for="f-img">
+        <div class="ipb">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          写真を追加（複数可）
+        </div>
+      </label>
+      <input type="file" id="f-img" accept="image/*" multiple style="display:none">
+      <div id="imgs-preview"></div>
+    </div>
   </div>
 
-
-  <!-- 観察記録用フォーム -->
-  <div id="control-panel">
-    <!-- 界選択ボタン群 -->
-    <div id="kingdomSelector" class="kingdombutton">
-      <button type="button" class="kingdom-btn" data-kingdom="動物界">動物界</button>
-      <button type="button" class="kingdom-btn active" data-kingdom="植物界">植物界</button>
-      <button type="button" class="kingdom-btn" data-kingdom="菌界">菌界</button>
+  <div class="ks" id="ks">
+    <button class="kb active" data-k="植物界">
+      <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#52B788;vertical-align:middle;margin-right:3px"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+      植物界
+    </button>
+    <button class="kb" data-k="動物界">
+      <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#e76f51;vertical-align:middle;margin-right:3px"><path d="M4.5 9.5c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9-1c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-9 8c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9 0c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-4.5-5c-2.5 0-6 1.5-6 4.5v1.5h12v-1.5c0-3-3.5-4.5-6-4.5z"/></svg>
+      動物界
+    </button>
+    <button class="kb" data-k="菌界">
+      <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#9b72cf;vertical-align:middle;margin-right:3px"><path d="M12 2C9.5 2 6 3.8 6 8c0 2.3 1.2 4.3 3 5.4V22h6v-8.6c1.8-1.1 3-3.1 3-5.4 0-4.2-3.5-6-6-6zm-1 18v-2h2v2h-2zm1-4c-2.2 0-4-1.8-4-4S9.8 8 12 8s4 1.8 4 4-1.8 4-4 4z"/></svg>
+      菌界
+    </button>
+  </div>
+  <input type="hidden" id="f-k" value="植物界">
+  <div class="fs">
+    <h3>基本情報</h3>
+    <div class="fi"><label>種名 *</label><input type="text" id="f-sp" placeholder="例：ヤマザクラ"></div>
+    <div class="fr">
+      <div class="fi"><label>科</label><input type="text" id="f-fa" placeholder="バラ科"></div>
+      <div class="fi"><label>属</label><input type="text" id="f-ge" placeholder="サクラ属"></div>
     </div>
-    <!-- 隠しフィールド -->
-    <input type="hidden" id="kingdom" value="植物界">
-
-    <label for="species">種名:</label>
-    <input type="text" id="species" placeholder="種名を入力">
-
-    <!-- 科と属の入力欄 -->
-    <div class="horizontal-group">
-      <div>
-        <label for="family">科:</label>
-        <input type="text" id="family" placeholder="科を入力">
-      </div>
-      <div>
-        <label for="genus">属:</label>
-        <input type="text" id="genus" placeholder="属を入力">
-      </div>
-    </div>
-
-    <div class="horizontal-group">
-      <div>
-        <label for="coordinates">座標:</label>
-        <input type="text" id="coordinates" placeholder="例: 34.8338852, 135.1753214">
-      </div>
-      <div>
-        <label for="discoveredDate">発見日:</label>
-        <input type="text" id="discoveredDate" placeholder="例: 2025年1月15日">
-      </div>
-    </div>
-
-    <!-- 都道府県市町村と絶滅危惧種を横並びに -->
-    <div class="horizontal-group">
-      <div>
-        <label for="location">都道府県市町村:</label>
-        <input type="text" id="location" placeholder="例: 和歌山県和歌山市">
-      </div>
-      <div>
-        <label for="conservation">絶滅危惧種:</label>
-        <select id="conservation">
-          <option value="指定なし" selected>指定なし</option>
+  </div>
+  <div class="fs">
+    <h3>発見情報</h3>
+    <div class="fr">
+      <div class="fi"><label>発見日</label><input type="text" id="f-dt" placeholder="2025年4月5日"></div>
+      <div class="fi"><label>絶滅危惧</label>
+        <select id="f-cn">
+          <option value="指定なし">指定なし</option>
           <option value="準絶滅危惧(NT)">準絶滅危惧(NT)</option>
           <option value="絶滅危惧II(VU)">絶滅危惧II(VU)</option>
           <option value="絶滅危惧IB(EN)">絶滅危惧IB(EN)</option>
@@ -701,1380 +337,1002 @@
         </select>
       </div>
     </div>
-
-    <label for="details">詳細:</label>
-    <textarea id="details" placeholder="感想または個体数や周辺環境などを記してください"></textarea>
-
-    <div class="button-row">
-      <label for="image" class="file-icon">画像を選択</label>
-      <button id="recordButton" type="button">記録</button>
+    <div class="fi">
+      <label>座標 * （緯度, 経度）</label>
+      <input type="text" id="f-co" placeholder="34.83380, 135.17530">
+      <div class="coord-actions">
+        <button class="coord-btn" onclick="readExifCoords('f-co','f-coord-msg')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          写真から座標読み込み
+        </button>
+        <button class="coord-btn" onclick="loadMunicipality('f-co','f-lo','f-coord-msg')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          座標から市町村取得
+        </button>
+      </div>
+      <div class="coord-msg" id="f-coord-msg"></div>
     </div>
-
-    <input type="file" id="image" accept="image/*">
-    <div id="imagePreview" style="margin-top: 10px;"></div>
+    <div class="fi"><label>都道府県・市町村</label><input type="text" id="f-lo" placeholder="和歌山県和歌山市"></div>
   </div>
+  <div class="fs">
+    <h3>メモ</h3>
+    <div class="fi"><label>メモ</label><textarea id="f-de" placeholder="個体数、環境など"></textarea></div>
+  </div>
+  <button class="rbtn" onclick="doRecord()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    記録する
+  </button>
+</div>
 
-  <!-- 地図表示エリア -->
-  <div id="map">
-    <!-- マップ左上のフィルター -->
-    <div id="mapKingdomFilter">
-      <button data-kingdom="" class="active">すべて</button>
-      <button data-kingdom="動物界">動物界</button>
-      <button data-kingdom="植物界">植物界</button>
-      <button data-kingdom="菌界">菌界</button>
+<!-- LIST -->
+<div id="list-page" class="page">
+  <div class="lh">
+    <div class="sb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="ls" placeholder="種名・科・座標で検索..." oninput="renderList()">
     </div>
-    <!-- エリア検索、エリア解除、ピン更新、全画面表示ボタン（左上、下部） -->
-    <div id="areaSearchControl">
-      <button id="startAreaSearch" type="button">エリア検索</button>
-      <button id="clearAreaSearch" type="button">エリア解除</button>
-      <button id="refreshMarkersBtn" type="button">ピン更新</button>
-      <button id="fullscreenButton" type="button">全画面表示</button>
-    </div>
-    <!-- ヒートマップ表示（右上） -->
-    <div id="heatmapControl">
-      <button id="heatmapButton" type="button">ヒートマップ表示</button>
-    </div>
-    <!-- ミニリスト -->
-    <div id="miniList">
-      <div id="miniListControls">
-        <button id="updateMiniListBtn" type="button">更新</button>
-        <button id="toggleMiniListBtn" type="button">非表示</button>
-      </div>
-      <div id="miniListItems">
-        <!-- ミニリストアイテムは updateMiniList() 内で動的に追加 -->
-      </div>
+    <div class="ft" id="lf">
+      <button class="ftb active" data-k="">すべて</button>
+      <button class="ftb" data-k="植物界">植物</button>
+      <button class="ftb" data-k="動物界">動物</button>
+      <button class="ftb" data-k="菌界">菌類</button>
     </div>
   </div>
+  <div id="list-items"></div>
+</div>
 
-  <!-- リスト表示 -->
-  <div id="data-list">
-    <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 10px;">
-      <input type="text" id="searchBar" placeholder="種名、科、界、座標で検索" style="width: 100%; max-width: 400px; padding: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px;">
-      <div id="dataListKingdomFilter">
-        <button type="button" data-kingdom="" class="active">すべて</button>
-        <button type="button" data-kingdom="植物界">植物界</button>
-        <button type="button" data-kingdom="動物界">動物界</button>
-        <button type="button" data-kingdom="菌界">菌界</button>
-      </div>
+<!-- GRID -->
+<div id="grid-page" class="page">
+  <div class="lh">
+    <div class="sb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="gs" placeholder="種名・科・座標で検索..." oninput="renderGrid()">
     </div>
-    <table id="dataTable">
-      <thead>
-        <tr>
-          <th><strong>画像</strong></th>
-          <th><strong>種名</strong></th>
-          <th><strong>科</strong></th>
-          <th><strong>属</strong></th>
-          <th><strong>座標</strong></th>
-          <th><strong>発見日</strong></th>
-          <th><strong>都道府県市町村</strong></th>
-          <th><strong>記録時間</strong></th>
-        </tr>
-      </thead>
-      <tbody id="dataListTbody"></tbody>
-    </table>
+    <div class="ft" id="gf">
+      <button class="ftb active" data-k="">すべて</button>
+      <button class="ftb" data-k="植物界">植物</button>
+      <button class="ftb" data-k="動物界">動物</button>
+      <button class="ftb" data-k="菌界">菌類</button>
+    </div>
   </div>
+  <div id="grid-items"></div>
+</div>
 
-  <!-- グリッド表示 -->
-  <div id="grid">
-    <div id="gridSearchContainer">
-      <input type="text" id="gridSearchBar" placeholder="種名、科、界、座標で検索" style="width: 100%; max-width: 400px; padding: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px;">
-      <div id="gridKingdomFilter">
-        <button type="button" data-kingdom="" class="active">すべて</button>
-        <button type="button" data-kingdom="植物界">植物界</button>
-        <button type="button" data-kingdom="動物界">動物界</button>
-        <button type="button" data-kingdom="菌界">菌界</button>
-      </div>
-    </div>
-    <div id="gridContainer"></div>
+<!-- DETAIL -->
+<div id="detail-page" class="page">
+  <button class="dbk" onclick="closeDetail()">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>戻る
+  </button>
+  <div id="detail-swiper" style="display:none">
+    <div id="swiper-track"></div>
+    <div id="swiper-dots"></div>
+    <button id="swiper-prev" onclick="swiperMove(-1)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button id="swiper-next" onclick="swiperMove(1)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="18" height="18"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
   </div>
-
-  <!-- 詳細ページ -->
-  <div id="detailPage">
-    <button id="backButton" type="button">戻る</button>
-    <div class="detail-container">
-      <div id="detailImage">
-        <img src="" alt="植物画像">
-      </div>
-      <div id="detailInfo">
-        <p><strong></strong> <span id="detailSpecies"></span></p>
-        <!-- 絶滅危惧種（詳細ページ：科の上に配置） -->
-        <p id="detailConservation"><strong>【絶滅危惧分類】</strong> <span id="conservationStatus"></span></p>
-        <p><strong>【科】</strong> <span id="detailFamily"></span></p>
-        <p><strong>【属】</strong> <span id="detailGenus"></span></p>
-        <p><strong>【発見地】</strong> <span id="detailLocation"></span></p>
-        <p><strong>【発見日】</strong> <span id="detailDiscoveredDate"></span></p>
-        <p><strong>【座標】</strong> <span id="detailCoordinates"></span></p>
-        <p><strong>【詳細】</strong> <span id="detailDetails"></span></p>
-        <p id="detailsmaptext"><strong>【周辺地図】</strong></p>
-        <div id="detailMap" align="center"></div>
-      </div>
+  <div class="dbody">
+    <div id="d-cn" class="dc"></div>
+    <div class="dsp" id="d-sp"></div>
+    <div class="dgrid">
+      <div class="di"><div class="di-l">科</div><div class="di-v" id="d-fa">—</div></div>
+      <div class="di"><div class="di-l">属</div><div class="di-v" id="d-ge">—</div></div>
+      <div class="di"><div class="di-l">発見日</div><div class="di-v" id="d-dt">—</div></div>
+      <div class="di"><div class="di-l">都道府県</div><div class="di-v" id="d-lo">—</div></div>
+      <div class="di full"><div class="di-l">座標</div><div class="di-v" id="d-co">—</div></div>
     </div>
-    <h2 id="detailInfoh2">Wikipediaより引用</h2>
-    <div id="wikipediaLink"></div>
+    <div class="dnotes" id="d-nw">
+      <div class="dnotes-l">メモ</div>
+      <div class="dnotes-t" id="d-no"></div>
+    </div>
+    <div id="dmap-box"></div>
+    <div class="wiki-s">
+      <h4>Wikipedia より</h4>
+      <div class="wiki-c" id="d-wiki">読み込み中...</div>
+    </div>
   </div>
+</div>
 
-  <!-- 編集ページ -->
-  <div id="editPage">
-    <label for="editRecordSelect">編集する記録を選択:</label>
-    <select id="editRecordSelect" style="width:100%; padding:8px; font-size:16px; margin-bottom:10px;"></select>
-
-    <div id="editKingdomSelector" class="kingdombutton">
-      <button type="button" class="edit-kingdom-btn" data-kingdom="動物界">動物界</button>
-      <button type="button" class="edit-kingdom-btn" data-kingdom="植物界">植物界</button>
-      <button type="button" class="edit-kingdom-btn" data-kingdom="菌界">菌界</button>
-    </div>
-    <input type="hidden" id="editKingdom" value="">
-
-    <label for="editSpecies">種名:</label>
-    <input type="text" id="editSpecies" placeholder="種名を入力">
-
-    <div class="horizontal-group">
-      <div>
-        <label for="editFamily">科:</label>
-        <input type="text" id="editFamily" placeholder="科を入力">
-      </div>
-      <div>
-        <label for="editGenus">属:</label>
-        <input type="text" id="editGenus" placeholder="属を入力">
-      </div>
+<!-- EDIT -->
+<div id="edit-page" class="page">
+  <div class="eh">データ編集</div>
+  <div class="eb">
+    <div class="esw">
+      <label>編集する記録</label>
+      <select id="e-sel" onchange="loadER(this.value)"></select>
     </div>
 
-    <div class="horizontal-group">
-      <div>
-        <label for="editCoordinates">座標:</label>
-        <input type="text" id="editCoordinates" placeholder="例: 34.8338852, 135.1753214">
-      </div>
-      <div>
-        <label for="editDiscoveredDate">発見日:</label>
-        <input type="text" id="editDiscoveredDate" placeholder="例: 2025年1月15日">
+    <!-- 写真セクションを最上部に -->
+    <div class="fs">
+      <h3>写真</h3>
+      <div class="fi">
+        <label for="e-img">
+          <div class="ipb">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            写真を追加・変更
+          </div>
+        </label>
+        <input type="file" id="e-img" accept="image/*" multiple style="display:none" onchange="addEditImgs(this)">
+        <div id="e-imgs-preview"></div>
       </div>
     </div>
 
-    <!-- 都道府県市町村と絶滅危惧種（編集画面） -->
-    <div class="horizontal-group">
-      <div>
-        <label for="editLocation">都道府県市町村:</label>
-        <input type="text" id="editLocation" placeholder="例: 和歌山県和歌山市">
-      </div>
-      <div>
-        <label for="editConservation">絶滅危惧種:</label>
-        <select id="editConservation">
-          <option value="指定なし" selected>指定なし</option>
-          <option value="準絶滅危惧(NT)">準絶滅危惧(NT)</option>
-          <option value="絶滅危惧II(VU)">絶滅危惧II(VU)</option>
-          <option value="絶滅危惧IB(EN)">絶滅危惧IB(EN)</option>
-          <option value="絶滅危惧IA(CR)">絶滅危惧IA(CR)</option>
-          <option value="情報不足(DD)">情報不足(DD)</option>
-        </select>
+    <div class="ks" id="eks">
+      <button class="kb" data-k="植物界">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#52B788;vertical-align:middle;margin-right:3px"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+        植物界
+      </button>
+      <button class="kb" data-k="動物界">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#e76f51;vertical-align:middle;margin-right:3px"><path d="M4.5 9.5c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9-1c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-9 8c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9 0c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-4.5-5c-2.5 0-6 1.5-6 4.5v1.5h12v-1.5c0-3-3.5-4.5-6-4.5z"/></svg>
+        動物界
+      </button>
+      <button class="kb" data-k="菌界">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#9b72cf;vertical-align:middle;margin-right:3px"><path d="M12 2C9.5 2 6 3.8 6 8c0 2.3 1.2 4.3 3 5.4V22h6v-8.6c1.8-1.1 3-3.1 3-5.4 0-4.2-3.5-6-6-6zm-1 18v-2h2v2h-2zm1-4c-2.2 0-4-1.8-4-4S9.8 8 12 8s4 1.8 4 4-1.8 4-4 4z"/></svg>
+        菌界
+      </button>
+    </div>
+    <input type="hidden" id="e-k" value="">
+    <div class="fs">
+      <h3>基本情報</h3>
+      <div class="fi"><label>種名</label><input type="text" id="e-sp" placeholder="種名"></div>
+      <div class="fr">
+        <div class="fi"><label>科</label><input type="text" id="e-fa"></div>
+        <div class="fi"><label>属</label><input type="text" id="e-ge"></div>
       </div>
     </div>
-
-    <label for="editDetails">詳細:</label>
-    <textarea id="editDetails" placeholder="感想または個体数や周辺環境などを記してください" ></textarea>
-
-    <div class="button-row">
-      <div class="edit-button">
-        <label for="editImage" >画像を選択</label>
+    <div class="fs">
+      <h3>発見情報</h3>
+      <div class="fr">
+        <div class="fi"><label>発見日</label><input type="text" id="e-dt"></div>
+        <div class="fi"><label>絶滅危惧</label>
+          <select id="e-cn">
+            <option value="指定なし">指定なし</option>
+            <option value="準絶滅危惧(NT)">準(絶滅危惧NT)</option>
+            <option value="絶滅危惧II(VU)">絶滅危惧II(VU)</option>
+            <option value="絶滅危惧IB(EN)">絶滅危惧IB(EN)</option>
+            <option value="絶滅危惧IA(CR)">絶滅危惧IA(CR)</option>
+            <option value="情報不足(DD)">情報不足(DD)</option>
+          </select>
+        </div>
       </div>
-      <div class="edit-button">
-        <button id="updateRecordButton" type="button" >更新</button>
+      <div class="fi">
+        <label>座標</label>
+        <input type="text" id="e-co" placeholder="緯度, 経度">
+        <div class="coord-actions">
+          <button class="coord-btn" onclick="readExifCoords('e-co','e-coord-msg')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            写真から座標読み込み
+          </button>
+          <button class="coord-btn" onclick="loadMunicipality('e-co','e-lo','e-coord-msg')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+            座標から市町村取得
+          </button>
+        </div>
+        <div class="coord-msg" id="e-coord-msg"></div>
       </div>
-      <div class="edit-button">
-        <button id="saveRecordAsTxtButton" type="button">ファイル保存</button>
-      </div>
+      <div class="fi"><label>都道府県・市町村</label><input type="text" id="e-lo"></div>
     </div>
-
-    <input type="file" id="editImage" accept="image/*">
-    <div id="editImagePreview" style="margin-top: 10px;"></div>
+    <div class="fs">
+      <h3>メモ</h3>
+      <div class="fi"><label>メモ</label><textarea id="e-de"></textarea></div>
+    </div>
+    <div class="ea">
+      <button class="eab eu" onclick="doUpdate()">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>更新
+      </button>
+      <button class="eab es2" onclick="doSaveTxt()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>保存
+      </button>
+      <button class="eab ed" onclick="doDelete()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>この記録を削除
+      </button>
+    </div>
   </div>
-  <script src="https://unpkg.com/topojson-client@3"></script>
+</div>
 
-  <div id="board"></div>
+<!-- DATA -->
+<div id="data-page" class="page">
+  <div class="dstat" style="margin:16px 16px 0;">
+    <svg viewBox="0 0 24 24" width="32" height="32" style="fill:rgba(255,255,255,.7)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+    <div><div class="dsn" id="d-cnt">0</div><div class="dsl">件の記録</div></div>
+  </div>
+  <div style="padding:16px;">
+    <div class="dc2">
+      <h3>
+        <svg viewBox="0 0 24 24" width="16" height="16" style="fill:var(--gd);vertical-align:middle;margin-right:4px"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 16.46 1 14.55 1c-1.3 0-2.4.8-3.11 1.87l-.44.67-.44-.67C9.85 1.8 8.76 1 7.45 1 5.54 1 4 2.54 4 4.64c0 .48.11.92.18 1.36H2v14h20V6zm-7.45 12H7V8h5.55v10zm7.45 0h-5.55V8H20v10z"/></svg>
+        観察記録を読み込む
+      </h3>
+      <p>記録時に保存した .txt ファイルを選択。複数可。</p>
+      <label class="dfb bl" for="file-in">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>ファイルを選択
+      </label>
+      <input type="file" id="file-in" accept=".txt" multiple style="display:none" onchange="loadFiles(this)">
+    </div>
+    <div class="dc2">
+      <h3>
+        <svg viewBox="0 0 24 24" width="16" height="16" style="fill:var(--gd);vertical-align:middle;margin-right:4px"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18" stroke="var(--cream)" stroke-width="1.5"/><line x1="16" y1="6" x2="16" y2="22" stroke="var(--cream)" stroke-width="1.5"/></svg>
+        境界データを読み込む
+      </h3>
+      <p>TopoJSON / GeoJSON を選択すると地図に境界線を表示。</p>
+      <label class="dfb bm" for="bound-in">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>境界ファイルを選択
+      </label>
+      <input type="file" id="bound-in" accept=".json,.topojson" multiple style="display:none" onchange="loadBoundary(this)">
+    </div>
+  </div>
+</div>
 
-  <!-- スクリプト群 -->
-  <!-- Leaflet と Leaflet.draw -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-  <!-- ※今回はグリッド状のヒートマップ実装のため、Leaflet.heat は利用しません -->
+</div><!-- /pages -->
+
+<nav id="nav">
+  <button class="nb active" id="nb-map" onclick="showPage('map')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>マップ
+  </button>
+  <button class="nb" id="nb-form" onclick="showPage('form')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>記録
+  </button>
+  <button class="nb" id="nb-list" onclick="showPage('list')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>リスト
+  </button>
+  <button class="nb" id="nb-grid" onclick="showPage('grid')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>グリッド
+  </button>
+  <button class="nb" id="nb-edit" onclick="showPage('edit')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>編集
+  </button>
+  <button class="nb" id="nb-data" onclick="showPage('data')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>データ
+  </button>
+</nav>
+
+<div id="img-modal" onclick="this.classList.remove('open')"><img id="img-modal-img" src="" alt=""></div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/topojson-client@3"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script>
-/*************** セッション管理・グローバル変数 ***************/
-// localStorage を勝手に消さないよう beforeunload のクリアは削除しました。
-localStorage.clear();
-let map,
-    storedPins = JSON.parse(localStorage.getItem('pins')) || [],
-    pinMarkers = [];
-// 各フィルター用グローバル変数
-let dataListKingdomFilter = "";
-let gridKingdomFilter = "";
-let mapKingdomFilter = "";
-// エリア検索用フィルター：drawn layerを保持
-let areaFilterLayer = null;
-// drawnItems をグローバル変数として保持
-let drawnItems;
-// ヒートマップ表示のON/OFF状態（true のときはグリッド状ヒートマップを表示し、ピンは非表示）
-let heatmapOn = false;
-// グリッドヒートマップレイヤー
-let gridHeatmapLayer = null;
+// ━━ STATE ━━
+let pins=[],markers=[];
+let map;
+let hmOn=false,hmLayer=null;
+let mapKF='',listKF='',gridKF='';
+let curDetail=-1,prevPage='map';
+let dMapInst=null,boundaryLayers=[];
+let formImgs=[];
+let editImgs=[];
 
-/*************** カスタムアイコン設定 ***************/
-const plantIcon = L.icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  iconSize: [15, 25],
-  iconAnchor: [7, 25],
-  popupAnchor: [1, -20]
-});
+// EXIF読み込み用：最後に選択された画像ファイルを保持
+let lastFormFiles=[];
+let lastEditFiles=[];
 
-const animalIcon = L.icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-  iconSize: [15, 25],
-  iconAnchor: [7, 25],
-  popupAnchor: [1, -20]
-});
-
-const fungiIcon = L.icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
-  iconSize: [15, 25],
-  iconAnchor: [7, 25],
-  popupAnchor: [1, -20]
-});
-
-/*************** タイルレイヤー設定 ***************/
-// 標準OSM
-const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap contributors'
-});
-// 衛星写真：Esri World Imagery
-const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  maxZoom: 19,
-  attribution: '© Esri, DigitalGlobe, GeoEye, Earthstar, etc.'
-});
-
-// 第5回植生（Ecoris タイル） — オーバーレイとして追加（利用規約を確認してください）
-const vegLayer = L.tileLayer('https://map.ecoris.info/tiles/vege/{z}/{x}/{y}.png', {
-  minZoom: 5,
-  maxZoom: 15,
-  attribution: '出典: Ecoris 地図タイル（環境省 第5回植生調査データを使用）'
-});
-
-const baseLayers = {
-  "標準": osmLayer,
-  "衛星写真": satelliteLayer
+const ICONS={
+  '植物界':L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',iconSize:[15,25],iconAnchor:[7,25],popupAnchor:[1,-20]}),
+  '動物界':L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',iconSize:[15,25],iconAnchor:[7,25],popupAnchor:[1,-20]}),
+  '菌界':L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',iconSize:[15,25],iconAnchor:[7,25],popupAnchor:[1,-20]})
 };
-const overlayLayers = {
-  '第5回 植生(オーバーレイ)': vegLayer
-};
+const icon=k=>ICONS[k]||ICONS['植物界'];
 
-/*************** 地図の初期化 ***************/
-function initializeMap() {
-  map = L.map('map', {
-    center: [34.226034, 135.167507],
-    zoom: 8,
-    layers: [osmLayer]
-  });
-  L.control.layers(baseLayers, overlayLayers).addTo(map);
-  map.on('moveend', function() {
-    if (heatmapOn) {
-      updateHeatmap();
-    }
-  });
+// ━━ MAP INIT ━━
+function initMap(){
+  const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'});
+  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'});
+  const veg=L.tileLayer('https://map.ecoris.info/tiles/vege/{z}/{x}/{y}.png',{minZoom:5,maxZoom:15,attribution:'© Ecoris/環境省'});
 
- const boundaryLayers = [];
+  map=L.map('map',{center:[34.226034,135.167507],zoom:8,layers:[osm]});
+  L.control.layers({'標準':osm,'衛星写真':sat},{'植生（環境省）':veg}).addTo(map);
+  map.on('moveend',()=>{if(hmOn)updateHeatmap();});
+}
 
-document.getElementById('boundaryInput').addEventListener('change', function(event) {
-  const files = Array.from(event.target.files);
-  if (!files.length) return;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const topoData = JSON.parse(e.target.result);
-        const objectName = Object.keys(topoData.objects)[0];
-        const geoJson = topojson.feature(topoData, topoData.objects[objectName]);
-        const layer = L.geoJSON(geoJson, {
-          style: {
-            color: '#0F5474',      
-            weight: 2,
-            fill: true,
-            fillColor: '#0F5474',  
-            fillOpacity: 0.2      
-          }
-        }).addTo(map);
-        boundaryLayers.push(layer);
-        // Fit map to all boundaries
-        const group = L.featureGroup(boundaryLayers);
-        map.fitBounds(group.getBounds());
-      } catch (err) {
-        console.error('TopoJSON parse error:', err);
-      }
-    };
-    reader.readAsText(file);
-  });
-  // Reset input to allow re-selection of same files
-  event.target.value = '';
-});
-  
+// ━━ PAGES ━━
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById(name+'-page').classList.add('active');
+  const nb=document.getElementById('nb-'+name);
+  if(nb)nb.classList.add('active');
+  if(name==='map'){map.invalidateSize();updateMapMarkers();renderMiniList();}
+  if(name==='list')renderList();
+  if(name==='grid')renderGrid();
+  if(name==='edit')refreshES();
+  if(name==='data')document.getElementById('d-cnt').textContent=pins.length;
+  if(name!=='detail')prevPage=name;
+}
 
-  // drawnItems の初期化
-  drawnItems = new L.FeatureGroup();
-  map.addLayer(drawnItems);
-  // Leaflet.draw の設定（矩形と円形のみ許可：多角形は無効）
-  let drawControl = new L.Control.Draw({
-    draw: {
-      polyline: false,
-      polygon: false,
-      circle: {
-        shapeOptions: { color: '#97009c' }
-      },
-      marker: false,
-      circlemarker: false,
-      rectangle: {
-        shapeOptions: { color: '#97009c' }
-      }
-    },
-    edit: { featureGroup: drawnItems, edit: false, remove: false }
-  });
-  map.addControl(drawControl);
-  map.on(L.Draw.Event.CREATED, function (event) {
-    let layer = event.layer;
-    drawnItems.clearLayers();
-    drawnItems.addLayer(layer);
-    areaFilterLayer = layer;
+// ━━ MAP FILTER PANEL ━━
+function toggleFilterPanel(){
+  document.getElementById('map-filter-panel').classList.toggle('open');
+}
+document.querySelectorAll('#map-kf .fp-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#map-kf .fp-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    mapKF=this.dataset.k;
     updateMapMarkers();
-    updateMiniList();
-    updateDataList();
-    updateGrid();
-    updateHeatmap();
+    renderMiniList();
   });
-  // 既存のピンを描画
-  storedPins.forEach((pin, index) => {
-    addPin(pin.species, pin.family, pin.genus, pin.kingdom, pin.lat, pin.lng, pin.imageUrl, pin.timestamp, pin.discoveredDate, pin.location, pin.details, pin.conservation, false, index);
-  });
-  // ミニリスト内のスクロール伝播を無効化
-  const miniListEl = document.getElementById('miniList');
-  if (miniListEl) {
-    L.DomEvent.disableScrollPropagation(miniListEl);
-  }
-  
-}
-
-/*************** 補助関数：エリア内判定 ***************/
-function isPointInsideArea(layer, latLng) {
-  if (!layer) return true;
-  if (layer instanceof L.Circle) {
-    return latLng.distanceTo(layer.getLatLng()) <= layer.getRadius();
-  } else if (layer instanceof L.Rectangle) {
-    return layer.getBounds().contains(latLng);
-  }
-  return true;
-}
-
-/*************** ヒートマップ更新（グリッド式） ***************/
-function updateHeatmap() {
-  if (gridHeatmapLayer) {
-    map.removeLayer(gridHeatmapLayer);
-    gridHeatmapLayer = null;
-  }
-  if (!heatmapOn) return;
-
-  gridHeatmapLayer = L.layerGroup();
-  const cellSize = 11;
-  const zoom = map.getZoom();
-  const bounds = map.getBounds();
-  const topLeft = map.project(bounds.getNorthWest(), zoom);
-  const bottomRight = map.project(bounds.getSouthEast(), zoom);
-  const width = bottomRight.x - topLeft.x;
-  const height = bottomRight.y - topLeft.y;
-  const cols = Math.ceil(width / cellSize);
-  const rows = Math.ceil(height / cellSize);
-
-  let gridCounts = new Array(rows);
-  for (let r = 0; r < rows; r++) {
-    gridCounts[r] = new Array(cols).fill(0);
-  }
-
-  storedPins.forEach(pin => {
-    if (mapKingdomFilter && pin.kingdom.toLowerCase() !== mapKingdomFilter) return;
-    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(pin.lat, pin.lng))) return;
-    const point = map.project(L.latLng(pin.lat, pin.lng), zoom);
-    const col = Math.floor((point.x - topLeft.x) / cellSize);
-    const row = Math.floor((point.y - topLeft.y) / cellSize);
-    if (col >= 0 && col < cols && row >= 0 && row < rows) {
-      gridCounts[row][col]++;
-    }
-  });
-
-  let maxCount = 0;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (gridCounts[r][c] > maxCount) maxCount = gridCounts[r][c];
-    }
-  }
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const count = gridCounts[r][c];
-      if (count > 0) {
-        const x1 = topLeft.x + c * cellSize;
-        const y1 = topLeft.y + r * cellSize;
-        const x2 = x1 + cellSize;
-        const y2 = y1 + cellSize;
-        const nw = map.unproject(L.point(x1, y1), zoom);
-        const se = map.unproject(L.point(x2, y2), zoom);
-        const cellBounds = [nw, se];
-        const ratio = count / maxCount;
-        // 補間：オレンジ (255,165,0) から赤 (255,0,0) へのグラデーション
-        const green = Math.round(165 * (1 - ratio));
-        const fillColor = `rgb(255, ${green}, 0)`;
-        const rect = L.rectangle(cellBounds, {
-          color: "#ffffff",    // 白色の枠線
-          weight: 1,           // 枠線の太さ
-          fillColor: fillColor,
-          fillOpacity: 0.6,
-          interactive: false
-        });
-        rect.addTo(gridHeatmapLayer);
-      }
-    }
-  }
-  gridHeatmapLayer.addTo(map);
-}
-
-/*************** 表示切替関数 ***************/
-function showMap() {
-  document.getElementById('map').style.display = 'block';
-  document.getElementById('control-panel').style.display = 'none';
-  document.getElementById('data-list').style.display = 'none';
-  document.getElementById('grid').style.display = 'none';
-  document.getElementById('board').style.display = 'none';
-  document.getElementById('detailPage').style.display = 'none';
-  document.getElementById('editPage').style.display = 'none';
-  // ヒートマップ表示時はピンは非表示するので、heatmapOn が falseの場合のみ marker を表示
-  if (!heatmapOn) {
-    updateMapMarkers();
-  }
-  map.invalidateSize();
-}
-function showDataList() {
-  document.getElementById('map').style.display = 'none';
-  document.getElementById('control-panel').style.display = 'none';
-  document.getElementById('data-list').style.display = 'block';
-  document.getElementById('grid').style.display = 'none';
-  document.getElementById('board').style.display = 'none';
-  document.getElementById('detailPage').style.display = 'none';
-  document.getElementById('editPage').style.display = 'none';
-  updateDataList();
-}
-function showGrid() {
-  document.getElementById('map').style.display = 'none';
-  document.getElementById('control-panel').style.display = 'none';
-  document.getElementById('data-list').style.display = 'none';
-  document.getElementById('grid').style.display = 'block';
-  document.getElementById('board').style.display = 'none';
-  document.getElementById('detailPage').style.display = 'none';
-  document.getElementById('editPage').style.display = 'none';
-  updateGrid();
-}
-function showRecordForm() {
-  document.getElementById('control-panel').style.display = 'block';
-  document.getElementById('map').style.display = 'none';
-  document.getElementById('data-list').style.display = 'none';
-  document.getElementById('grid').style.display = 'none';
-  document.getElementById('board').style.display = 'none';
-  document.getElementById('detailPage').style.display = 'none';
-  document.getElementById('editPage').style.display = 'none';
-}
-function showEditPage() {
-  document.getElementById('editPage').style.display = 'block';
-  document.getElementById('map').style.display = 'none';
-  document.getElementById('control-panel').style.display = 'none';
-  document.getElementById('data-list').style.display = 'none';
-  document.getElementById('grid').style.display = 'none';
-  document.getElementById('board').style.display = 'none';
-  document.getElementById('detailPage').style.display = 'none';
-  updateEditRecordSelect();
-}
-// 新機能：ボード画面表示
-function showBoard() {
-  document.getElementById('board').style.display = 'block';
-  document.getElementById('map').style.display = 'none';
-  document.getElementById('control-panel').style.display = 'none';
-  document.getElementById('data-list').style.display = 'none';
-  document.getElementById('grid').style.display = 'none';
-  document.getElementById('detailPage').style.display = 'none';
-  document.getElementById('editPage').style.display = 'none';
-  updateBoard();
-}
-
-/*************** 新機能：ボード更新関数（整列版） ***************/
-function updateBoard() {
-  const boardContainer = document.getElementById('board');
-  boardContainer.innerHTML = '';
-  const boardWidth = boardContainer.clientWidth;
-  
-  const imagePromises = storedPins
-    .map((pin, originalIndex) => {
-      if (!pin.imageUrl || pin.imageUrl === 'なし') return Promise.resolve(null);
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = function() {
-          const aspectRatio = img.naturalWidth / img.naturalHeight;
-          resolve({ pin, aspectRatio, originalIndex });
-        };
-        img.onerror = function() {
-          resolve(null);
-        };
-        img.src = pin.imageUrl;
-      });
-    });
-  
-  Promise.all(imagePromises).then(results => {
-    const items = results.filter(item => item !== null);
-    if (items.length === 0) return;
-    const rows = [];
-    let currentRow = [];
-    let currentAspectSum = 0;
-    const desiredRowHeight = 200;
-    
-    items.forEach(item => {
-      currentRow.push(item);
-      currentAspectSum += item.aspectRatio;
-      if (desiredRowHeight * currentAspectSum >= boardWidth) {
-        rows.push({ items: currentRow, aspectSum: currentAspectSum });
-        currentRow = [];
-        currentAspectSum = 0;
-      }
-    });
-    if (currentRow.length > 0) {
-      rows.push({ items: currentRow, aspectSum: currentAspectSum });
-    }
-    
-    let yOffset = 0;
-    rows.forEach(row => {
-      const rowHeight = Math.max(100, Math.min(300, boardWidth / row.aspectSum));
-      let xOffset = 0;
-      row.items.forEach(item => {
-        const imgWidth = rowHeight * item.aspectRatio;
-        const imgElem = document.createElement('img');
-        imgElem.src = item.pin.imageUrl;
-        imgElem.classList.add('board-image');
-        imgElem.style.width = imgWidth + 'px';
-        imgElem.style.height = rowHeight + 'px';
-        imgElem.style.left = xOffset + 'px';
-        imgElem.style.top = yOffset + 'px';
-        imgElem.addEventListener('click', function() {
-          const originalIndex = item.originalIndex;
-          if (originalIndex >= 0) {
-            showDetail(originalIndex);
-          }
-        });
-        boardContainer.appendChild(imgElem);
-        xOffset += imgWidth;
-      });
-      yOffset += rowHeight;
-    });
-  });
-}
-
-/*************** 全画面表示（マップのみ）トグル機能 ***************/
-document.getElementById('fullscreenButton').addEventListener('click', function() {
-  const mapElement = document.getElementById('map');
-  if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-    if (mapElement.requestFullscreen) {
-      mapElement.requestFullscreen();
-    } else if (mapElement.webkitRequestFullscreen) {
-      mapElement.webkitRequestFullscreen();
-    } else if (mapElement.msRequestFullscreen) {
-      mapElement.msRequestFullscreen();
-    }
-    this.textContent = '全画面終了';
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-      document.msExitFullscreen();
-    }
-    this.textContent = '全画面表示';
-  }
 });
-
-/*************** 詳細ページ表示＆静的マップ ***************/
-function showDetail(index) {
-  const pin = storedPins[index];
-  document.getElementById('detailSpecies').textContent = pin.species;
-  document.getElementById('conservationStatus').textContent = pin.conservation;
-  document.getElementById('detailFamily').textContent = pin.family || '';
-  document.getElementById('detailGenus').textContent = pin.genus || '';
-  document.getElementById('detailLocation').textContent = pin.location || '';
-  document.getElementById('detailDiscoveredDate').textContent = pin.discoveredDate;
-  document.getElementById('detailCoordinates').textContent = `${pin.lat}, ${pin.lng}`;
-  document.getElementById('detailDetails').textContent = pin.details || '';
-  const detailImg = document.querySelector('#detailImage img');
-  detailImg.src = pin.imageUrl ? pin.imageUrl : '';
-
-  // Wikipedia API 取得
-  const wikipediaDiv = document.getElementById('wikipediaLink');
-  wikipediaDiv.innerHTML = '<p>Wikipedia の内容を読み込み中...</p>';
-  const speciesEncoded = encodeURIComponent(pin.species);
-  const wikiApiUrl = `https://ja.wikipedia.org/w/api.php?action=parse&page=${speciesEncoded}&format=json&origin=*&prop=text`;
-  fetch(wikiApiUrl)
-    .then(response => response.json())
-    .then(data => {
-      if (data.error) {
-        wikipediaDiv.innerHTML = '<p>Wikipedia の内容が見つかりませんでした。</p>';
-      } else {
-        let htmlContent = data.parse.text["*"];
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlContent, "text/html");
-        doc.querySelectorAll('table.infobox, [class*="reference"], .mw-references-wrap, ol.references, div.reflist, .thumbcaption, .thumb, .mw-editsection').forEach(el => el.remove());
-        doc.querySelectorAll('a').forEach(a => {
-          const href = a.getAttribute("href");
-          if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
-            const span = document.createElement("span");
-            span.textContent = a.textContent;
-            a.parentNode.replaceChild(span, a);
-          } else {
-            a.removeAttribute("href");
-            a.style.color = "black";
-            a.style.textDecoration = "none";
-          }
-        });
-        doc.querySelectorAll('h2').forEach(h2 => {
-          h2.style.borderBottom = "1px solid #ccc";
-          h2.style.paddingBottom = "5px";
-        });
-        const allowedSections = ["概要", "分布", "利用", "種の保全状況評価"];
-        let sectionsHtml = [];
-        let contentContainer = doc.querySelector('#mw-content-text') || doc.body;
-        let children = Array.from(contentContainer.children);
-        let indexChild = 0;
-        let leadContent = [];
-        while (indexChild < children.length && children[indexChild].tagName !== "H2") {
-          leadContent.push(children[indexChild].outerHTML);
-          indexChild++;
-        }
-        if (leadContent.length > 0) {
-          let tempDiv = document.createElement("div");
-          tempDiv.innerHTML = leadContent.join("\n");
-          tempDiv.querySelectorAll("img").forEach(img => img.remove());
-          let sectionHtml = `<h2 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">概要</h2>\n` + tempDiv.innerHTML;
-          sectionsHtml.push(sectionHtml);
-        }
-        while (indexChild < children.length) {
-          if (children[indexChild].tagName === "H2") {
-            let headingText = children[indexChild].textContent.replace(/\[.*?\]/g, "").trim();
-            if (allowedSections.includes(headingText)) {
-              let headingHtml = `<h2 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">${headingText}</h2>`;
-              let sectionParts = [headingHtml];
-              indexChild++;
-              let sectionElements = [];
-              while (indexChild < children.length && children[indexChild].tagName !== "H2") {
-                sectionElements.push(children[indexChild]);
-                indexChild++;
-              }
-              if (headingText !== "種の保全状況評価") {
-                sectionElements.forEach(elem => {
-                  elem.querySelectorAll("img").forEach(img => img.remove());
-                });
-              }
-              sectionParts.push(sectionElements.map(el => el.outerHTML).join("\n"));
-              sectionsHtml.push(sectionParts.join("\n"));
-            } else {
-              indexChild++;
-              while (indexChild < children.length && children[indexChild].tagName !== "H2") {
-                indexChild++;
-              }
-            }
-          } else {
-            indexChild++;
-          }
-        }
-        const newContent = sectionsHtml.join('<hr>');
-        wikipediaDiv.innerHTML = `<div style="max-width: 800px; margin: 0 auto;">${newContent}</div>`;
-      }
-    })
-    .catch(error => {
-      console.error(error);
-      wikipediaDiv.innerHTML = '<p>Wikipedia の内容を取得できませんでした。</p>';
-    });
-  if (window.detailMapInstance) {
-    window.detailMapInstance.remove();
-  }
-  window.detailMapInstance = L.map('detailMap', {
-    center: [pin.lat, pin.lng],
-    zoom: 13,
-    dragging: false,
-    touchZoom: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    boxZoom: false,
-    keyboard: false,
-    zoomControl: false,
-    attributionControl: false
-  });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: ''
-  }).addTo(window.detailMapInstance);
-  let chosenIcon;
-  if (pin.kingdom === '動物界') {
-    chosenIcon = animalIcon;
-  } else if (pin.kingdom === '菌界') {
-    chosenIcon = fungiIcon;
-  } else {
-    chosenIcon = plantIcon;
-  }
-  L.marker([pin.lat, pin.lng], { icon: chosenIcon }).addTo(window.detailMapInstance);
-  setTimeout(() => {
-    window.detailMapInstance.invalidateSize();
-    window.detailMapInstance.setView([pin.lat, pin.lng], 13);
-  }, 100);
-  document.getElementById('map').style.display = 'none';
-  document.getElementById('control-panel').style.display = 'none';
-  document.getElementById('data-list').style.display = 'none';
-  document.getElementById('grid').style.display = 'none';
-  document.getElementById('board').style.display = 'none';
-  document.getElementById('editPage').style.display = 'none';
-  document.getElementById('detailPage').style.display = 'block';
+function toggleHeatmap(){
+  hmOn=!hmOn;
+  const btn=document.getElementById('hm-btn');
+  btn.classList.toggle('on',hmOn);
+  updateHeatmap();updateMapMarkers();
 }
-document.getElementById('backButton').addEventListener('click', function() {
-  document.getElementById('detailPage').style.display = 'none';
-  if (window.detailMapInstance) {
-    window.detailMapInstance.remove();
-    window.detailMapInstance = null;
-  }
-  showMap();
-});
 
-/*************** 観察記録登録関連 ***************/
-document.getElementById('recordButton').addEventListener('click', () => {
-  const kingdom = document.getElementById('kingdom').value.trim();
-  const species = document.getElementById('species').value.trim();
-  const family = document.getElementById('family').value.trim();
-  const genus = document.getElementById('genus').value.trim();
-  const coordinates = document.getElementById('coordinates').value.trim();
-  const [lat, lng] = coordinates.split(',').map(coord => parseFloat(coord.trim()));
-  const discoveredDate = document.getElementById('discoveredDate').value.trim() || '未記録';
-  const locationText = document.getElementById('location').value.trim();
-  const conservation = document.getElementById('conservation').value.trim();
-  const details = document.getElementById('details').value.trim();
-  const imageFile = document.getElementById('image').files[0];
-  if (!species || isNaN(lat) || isNaN(lng)) {
-    alert('種名と座標、または発見日の入力を正しく行ってください。');
+// ━━ MARKERS ━━
+function buildPopup(p,idx){
+  let h=`<strong>${p.species}</strong>`;
+  if(p.conservation&&p.conservation!=='指定なし')h+=`<br><small>⚠ ${p.conservation}</small>`;
+  if(p.location)h+=`<br><small>📍 ${p.location}</small>`;
+  h+=`<br><small>📅 ${p.discoveredDate||''}</small>`;
+  const imgs=p.images||[];
+  if(imgs.length)h+=`<br><img src="${imgs[0]}" style="width:140px;height:100px;object-fit:cover;border-radius:6px;margin:4px 0;cursor:pointer" onclick="openModal('${imgs[0]}')">`;
+  h+=`<br><button onclick="openDetail(${idx})" style="margin-top:6px;padding:6px 14px;background:#1B4332;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">詳細</button>`;
+  return h;
+}
+function addMarker(p,idx){
+  const m=L.marker([p.lat,p.lng],{icon:icon(p.kingdom)});
+  m.bindPopup(buildPopup(p,idx),{maxWidth:220});
+  markers[idx]=m;
+}
+function updateMapMarkers(){
+  for(let i=0;i<pins.length;i++){
+    const m=markers[i];if(!m)continue;
+    if(hmOn){map.hasLayer(m)&&m.remove();continue;}
+    const ok=(!mapKF||pins[i].kingdom===mapKF);
+    ok?(!map.hasLayer(m)&&m.addTo(map)):(map.hasLayer(m)&&m.remove());
+  }
+}
+
+// ━━ MINI LIST (MAP SIDEBAR) ━━
+function renderMiniList(){
+  const body=document.getElementById('map-minilist-body');
+  if(!body)return;
+  body.innerHTML='';
+  const filtered=pins.filter(p=>!mapKF||p.kingdom===mapKF);
+  if(!filtered.length){
+    body.innerHTML='<div style="padding:20px;text-align:center;color:#aaa;font-size:.78rem;">記録がありません</div>';
     return;
   }
-  const timestamp = new Date().toLocaleString();
-  if (imageFile) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      saveDataToFile(species, kingdom, family, genus, lat, lng, timestamp, e.target.result, discoveredDate, locationText, details, conservation);
+  filtered.forEach(p=>{
+    const i=pins.indexOf(p);
+    const imgs=p.images||[];
+    const imgH=imgs.length
+      ?`<div class="ml-img"><img src="${imgs[0]}" loading="lazy"></div>`
+      :`<div class="ml-img"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg></div>`;
+    const bClass=p.kingdom==='動物界'?'ba':p.kingdom==='菌界'?'bf':'bp';
+    const bLabel=p.kingdom.replace('界','');
+    const div=document.createElement('div');
+    div.className='ml-item';
+    div.innerHTML=`${imgH}<div style="flex:1;min-width:0;"><div class="ml-name">${p.species}</div><div class="ml-date">${p.discoveredDate||''}${p.location?' · '+p.location:''}</div></div><span class="badge ml-badge ${bClass}">${bLabel}</span>`;
+    div.onclick=()=>{
+      map.setView([p.lat,p.lng],14);
+      setTimeout(()=>markers[i]&&markers[i].openPopup(),300);
     };
-    reader.readAsDataURL(imageFile);
-  } else {
-    saveDataToFile(species, kingdom, family, genus, lat, lng, timestamp, null, discoveredDate, locationText, details, conservation);
-  }
-  updateMiniList();
-});
-function saveDataToFile(species, kingdom, family, genus, lat, lng, timestamp, imageData, discoveredDate, locationText, details, conservation) {
-  resetControlPanel();
-  const escapedDetails = details.replace(/\n/g, '\\n');
-  setTimeout(() => {
-    let data = `種名: ${species}\n` +
-               `界: ${kingdom || '未選択'}\n` +
-               `科: ${family || '未記録'}\n` +
-               `属: ${genus || '未記録'}\n` +
-               `座標: ${lat}, ${lng}\n` +
-               `発見日: ${discoveredDate}\n` +
-               `記録時間: ${timestamp}\n` +
-               `都道府県市町村: ${locationText}\n` +
-               `絶滅危惧種: ${conservation}\n` +
-               `詳細: ${escapedDetails}\n` +
-               `画像: ${imageData || 'なし'}`;
-     const blob = new Blob([data], { type: 'text/plain;charset=utf-8' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `plant_record_${Date.now()}.txt`;
-      link.click();
-  }, 500);
-  showMap();
-  addPin(species, family, genus, kingdom, lat, lng, imageData, timestamp, discoveredDate, locationText, details, conservation, true, undefined, true);
-}
-function resetControlPanel() {
-  document.getElementById('kingdom').value = '植物界';
-  document.querySelectorAll('#kingdomSelector button').forEach(btn => {
-    btn.classList.remove('active');
-    if(btn.getAttribute('data-kingdom') === '植物界') {
-      btn.classList.add('active');
-    }
+    body.appendChild(div);
   });
-  document.getElementById('species').value = '';
-  document.getElementById('family').value = '';
-  document.getElementById('genus').value = '';
-  document.getElementById('coordinates').value = '';
-  document.getElementById('discoveredDate').value = '';
-  document.getElementById('location').value = '';
-  document.getElementById('details').value = '';
-  document.getElementById('image').value = '';
-  document.getElementById('imagePreview').innerHTML = '';
-  document.getElementById('conservation').value = '指定なし';
 }
 
-/*************** ファイルからのデータ読込 ***************/
-document.getElementById('fileInput').addEventListener('change', (event) => {
-  const files = event.target.files;
-  if (!files.length) return;
-  Array.from(files).forEach((file) => {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const content = e.target.result.split('\n');
-      const species = content[0].split(': ')[1]?.trim();
-      const kingdom = content[1].split(': ')[1]?.trim();
-      const family = content[2].split(': ')[1]?.trim();
-      const genus = content[3].split(': ')[1]?.trim();
-      const coordinates = content[4].split(': ')[1]?.trim().split(',');
-      const lat = parseFloat(coordinates[0]);
-      const lng = parseFloat(coordinates[1]);
-      const discoveredDate = content[5].split(': ')[1]?.trim();
-      const timestamp = content[6].split(': ')[1]?.trim();
-      const locationText = content[7].split(': ')[1]?.trim();
-      const conservation = content[8].split(': ')[1]?.trim();
-      const detailsRaw = content[9].split(': ')[1] || '';
-      const details = detailsRaw.replace(/\\n/g, '\n').trim();
-      const imageData = content[10].split(': ')[1]?.trim();
-      if (!species || isNaN(lat) || isNaN(lng)) {
-        alert(`${file.name} の形式が正しくありません。`);
-        return;
+// ━━ HEATMAP ━━
+function updateHeatmap(){
+  if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}
+  if(!hmOn)return;
+  hmLayer=L.layerGroup();
+  const z=map.getZoom(),b=map.getBounds();
+  const tl=map.project(b.getNorthWest(),z),br=map.project(b.getSouthEast(),z);
+  const cs=11,cols=Math.ceil((br.x-tl.x)/cs),rows=Math.ceil((br.y-tl.y)/cs);
+  const g=Array.from({length:rows},()=>new Array(cols).fill(0));
+  let max=0;
+  pins.forEach(p=>{
+    if(mapKF&&p.kingdom!==mapKF)return;
+    const pt=map.project(L.latLng(p.lat,p.lng),z);
+    const c=Math.floor((pt.x-tl.x)/cs),r=Math.floor((pt.y-tl.y)/cs);
+    if(c>=0&&c<cols&&r>=0&&r<rows){g[r][c]++;if(g[r][c]>max)max=g[r][c];}
+  });
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(!g[r][c])continue;
+    const x1=tl.x+c*cs,y1=tl.y+r*cs;
+    const nw=map.unproject(L.point(x1,y1),z),se=map.unproject(L.point(x1+cs,y1+cs),z);
+    const ratio=g[r][c]/max;
+    L.rectangle([nw,se],{color:'#fff',weight:1,fillColor:`rgb(255,${Math.round(165*(1-ratio))},0)`,fillOpacity:.6,interactive:false}).addTo(hmLayer);
+  }
+  hmLayer.addTo(map);
+}
+
+// ━━ IMAGE UTILS ━━
+function compress(dataUrl,q=0.6){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=800;let w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res(c.toDataURL('image/jpeg',q));
+    };
+    img.src=dataUrl;
+  });
+}
+function readFile(file){
+  return new Promise(res=>{
+    const r=new FileReader();
+    r.onload=async e=>res(await compress(e.target.result));
+    r.readAsDataURL(file);
+  });
+}
+
+// ━━ EXIF 座標読み込み ━━
+// ExifデータをバイナリArrayBufferから解析
+function parseExifCoords(buffer){
+  const view=new DataView(buffer);
+  // JPEG SOI
+  if(view.getUint16(0)!==0xFFD8)return null;
+  let offset=2;
+  while(offset<view.byteLength){
+    const marker=view.getUint16(offset);
+    offset+=2;
+    if(marker===0xFFE1){
+      const len=view.getUint16(offset);
+      const exifHeader=String.fromCharCode(
+        view.getUint8(offset+2),view.getUint8(offset+3),
+        view.getUint8(offset+4),view.getUint8(offset+5)
+      );
+      if(exifHeader==='Exif'){
+        return parseIFD(buffer,offset+8);
       }
-      addPin(species, family, genus, kingdom, lat, lng, imageData === 'なし' ? null : imageData, timestamp, discoveredDate, locationText, details, conservation, true);
-    };
-    reader.readAsText(file);
-    updateMiniList();
-  });
-  setTimeout(() => {
-    updateMiniList();
-    showMap();
-  }, 2000);
-});
+      offset+=len;
+    }else if((marker&0xFF00)===0xFF00){
+      offset+=view.getUint16(offset);
+    }else break;
+  }
+  return null;
+}
 
-/*************** 地図上のピン追加 ***************/
-function addPin(species, family, genus, kingdom, lat, lng, imageUrl, timestamp = new Date().toLocaleString(), discoveredDate = '未記録', locationText = '', details = '', conservation, persist = true, index = storedPins.length, autoOpen = false) {
-  let chosenIcon;
-  if(kingdom === '動物界') {
-    chosenIcon = animalIcon;
-  } else if(kingdom === '菌界') {
-    chosenIcon = fungiIcon;
-  } else {
-    chosenIcon = plantIcon;
+function parseIFD(buffer,start){
+  const view=new DataView(buffer);
+  const isLE=view.getUint16(start)===0x4949;
+  const r16=(o)=>isLE?view.getUint16(o,true):view.getUint16(o);
+  const r32=(o)=>isLE?view.getUint32(o,true):view.getUint32(o);
+
+  const ifdOffset=r32(start+4)+start;
+  const count=r16(ifdOffset);
+
+  let latRef='',lat=null,lngRef='',lng=null,gpsOffset=0;
+  for(let i=0;i<count;i++){
+    const e=ifdOffset+2+i*12;
+    const tag=r16(e);
+    if(tag===0x8825) gpsOffset=r32(e+8)+start;
   }
-  const marker = L.marker([lat, lng], { icon: chosenIcon }).addTo(map);
-  let popupContent = `<strong>種名:</strong> ${species}<br>`;
-  if (conservation && conservation !== "指定なし") {
-    popupContent += `<strong>絶滅危惧種:</strong> ${conservation}<br>`;
+  if(!gpsOffset)return null;
+
+  const gpsCount=r16(gpsOffset);
+  for(let i=0;i<gpsCount;i++){
+    const e=gpsOffset+2+i*12;
+    const tag=r16(e);
+    const type=r16(e+2);
+    const cnt=r32(e+4);
+    const valOff=r32(e+8)+start;
+    if(tag===1){latRef=String.fromCharCode(view.getUint8(e+8));}
+    else if(tag===2&&type===5&&cnt===3){lat=readRational3(view,valOff,isLE);}
+    else if(tag===3){lngRef=String.fromCharCode(view.getUint8(e+8));}
+    else if(tag===4&&type===5&&cnt===3){lng=readRational3(view,valOff,isLE);}
   }
-  popupContent += `<strong>座標:</strong> ${lat}, ${lng}<br>
-                   <strong>発見日:</strong> ${discoveredDate}<br>`;
-  if (imageUrl) {
-    popupContent += `<img src="${imageUrl}" style="max-width:220px; max-height:180px; display:block; margin-bottom:5px; cursor:pointer;" onclick="showImageModal('${imageUrl}')">`;
+  if(lat===null||lng===null)return null;
+  let latDec=lat[0]+lat[1]/60+lat[2]/3600;
+  let lngDec=lng[0]+lng[1]/60+lng[2]/3600;
+  if(latRef==='S')latDec=-latDec;
+  if(lngRef==='W')lngDec=-lngDec;
+  return {lat:latDec,lng:lngDec};
+}
+
+function readRational3(view,offset,isLE){
+  const r=(o)=>isLE?view.getUint32(o,true):view.getUint32(o);
+  return [r(offset)/r(offset+4), r(offset+8)/r(offset+12), r(offset+16)/r(offset+20)];
+}
+
+// 座標読み込みボタン処理
+// coordInputId: 座標inputのid, msgId: メッセージdivのid
+// 複数写真がある場合は必ず1枚目（files[0]）から座標を取得する
+function readExifCoords(coordInputId, msgId){
+  const msg=document.getElementById(msgId);
+  const files=coordInputId.startsWith('f-')?lastFormFiles:lastEditFiles;
+  if(!files||files.length===0){
+    msg.textContent='まず写真を選択してください';
+    msg.className='coord-msg err';
+    return;
   }
-  popupContent += `<button onclick="showDetail(${index})" style="padding:7px 15px; margin:0 10px; font-size:13px; background-color:#3498db; color:white; border:none; cursor:pointer; border-radius:5px; transition:background-color 0.3s ease;">詳細</button>`;
-  marker.bindPopup(popupContent);
-  pinMarkers[index] = marker;
-  map.setView([lat, lng], 12);
-  if (persist) {
-    storedPins.push({ species, family, genus, kingdom, lat, lng, imageUrl, timestamp, discoveredDate, location: locationText, details, conservation });
-    localStorage.setItem('pins', JSON.stringify(storedPins));
+  msg.textContent='読み込み中...';
+  msg.className='coord-msg';
+
+  // 複数枚あっても常に1枚目から座標を取得
+  const file=files[0];
+  const fr=new FileReader();
+  fr.onload=e=>{
+    try{
+      const coords=parseExifCoords(e.target.result);
+      if(coords){
+        const latStr=coords.lat.toFixed(5);
+        const lngStr=coords.lng.toFixed(5);
+        document.getElementById(coordInputId).value=`${latStr}, ${lngStr}`;
+        msg.textContent=`座標を読み込みました (1枚目): ${latStr}, ${lngStr}`;
+        msg.className='coord-msg';
+      }else{
+        msg.textContent='1枚目の写真に座標情報が見つかりませんでした';
+        msg.className='coord-msg err';
+      }
+    }catch(err){
+      msg.textContent='座標の読み込みに失敗しました';
+      msg.className='coord-msg err';
+    }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+// 都道府県コード → 都道府県名テーブル
+const PREF_NAMES={
+  '01':'北海道','02':'青森県','03':'岩手県','04':'宮城県','05':'秋田県',
+  '06':'山形県','07':'福島県','08':'茨城県','09':'栃木県','10':'群馬県',
+  '11':'埼玉県','12':'千葉県','13':'東京都','14':'神奈川県','15':'新潟県',
+  '16':'富山県','17':'石川県','18':'福井県','19':'山梨県','20':'長野県',
+  '21':'岐阜県','22':'静岡県','23':'愛知県','24':'三重県','25':'滋賀県',
+  '26':'京都府','27':'大阪府','28':'兵庫県','29':'奈良県','30':'和歌山県',
+  '31':'鳥取県','32':'島根県','33':'岡山県','34':'広島県','35':'山口県',
+  '36':'徳島県','37':'香川県','38':'愛媛県','39':'高知県','40':'福岡県',
+  '41':'佐賀県','42':'長崎県','43':'熊本県','44':'大分県','45':'宮崎県',
+  '46':'鹿児島県','47':'沖縄県'
+};
+
+// 座標から都道府県・市町村取得（国土地理院API）
+async function loadMunicipality(coordInputId, locationInputId, msgId){
+  const msg=document.getElementById(msgId);
+  const val=document.getElementById(coordInputId).value.trim();
+  if(!val){msg.textContent='先に座標を入力してください';msg.className='coord-msg err';return;}
+  const parts=val.split(',').map(v=>parseFloat(v.trim()));
+  if(parts.length<2||isNaN(parts[0])||isNaN(parts[1])){
+    msg.textContent='座標の形式が正しくありません';msg.className='coord-msg err';return;
   }
-  updateMiniList();
-  updateMapMarkers();
-  updateHeatmap();
-  if (autoOpen) {
-    marker.openPopup();
+  const [lat,lng]=parts;
+  msg.textContent='都道府県・市町村を取得中...';msg.className='coord-msg';
+  try{
+    const res=await fetch(`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lon=${lng}&lat=${lat}`);
+    const data=await res.json();
+    if(data.results&&data.results.muniCd){
+      const r=data.results;
+      // muniCdの先頭2桁が都道府県コード
+      const prefCode=String(r.muniCd).padStart(5,'0').slice(0,2);
+      const prefName=PREF_NAMES[prefCode]||'';
+      const muniName=r.lv01Nm||'';
+      const fullName=prefName+muniName;
+      document.getElementById(locationInputId).value=fullName;
+      msg.textContent=`取得しました: ${fullName}`;
+      msg.className='coord-msg';
+    }else{
+      msg.textContent='市町村情報が見つかりませんでした';msg.className='coord-msg err';
+    }
+  }catch(e){
+    msg.textContent='取得に失敗しました';msg.className='coord-msg err';
   }
 }
 
-/*************** ミニリスト更新・表示切替 ***************/
-document.getElementById('updateMiniListBtn').addEventListener('click', updateMiniList);
-document.getElementById('toggleMiniListBtn').addEventListener('click', function() {
-  const miniListItems = document.getElementById('miniListItems');
-  if (miniListItems.style.display === 'none' || getComputedStyle(miniListItems).display === 'none') {
-    miniListItems.style.display = 'block';
-    this.textContent = '非表示';
-    miniList.style.opacity = '1';
-  } else {
-    miniListItems.style.display = 'none';
-    this.textContent = '表示';
-    miniList.style.opacity = '0.4';
+// ━━ FORM IMAGE HANDLING ━━
+document.getElementById('f-img').addEventListener('change',async function(){
+  lastFormFiles=Array.from(this.files);
+  for(const f of this.files){
+    const d=await readFile(f);
+    formImgs.push({dataUrl:d});
   }
+  this.value='';
+  renderFormPreviews();
 });
-function updateMiniList() {
-  const miniListContainer = document.getElementById('miniList');
-  const miniListItems = document.getElementById('miniListItems');
-  if (!miniListItems) return;
-  miniListItems.innerHTML = '';
-  let filteredPins = storedPins.map((p, idx) => ({pin: p, originalIndex: idx}));
-  if (mapKingdomFilter) {
-    filteredPins = filteredPins.filter(o => o.pin.kingdom.toLowerCase() === mapKingdomFilter);
-  }
-  filteredPins = filteredPins.filter(o => {
-    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(o.pin.lat, o.pin.lng))) return false;
+function renderFormPreviews(){
+  const wrap=document.getElementById('imgs-preview');
+  wrap.innerHTML='';
+  formImgs.forEach((im,i)=>{
+    const d=document.createElement('div');d.className='prev-thumb';
+    d.innerHTML=`<img src="${im.dataUrl}"><button class="rm" onclick="removeFormImg(${i})">×</button>`;
+    wrap.appendChild(d);
+  });
+}
+function removeFormImg(i){formImgs.splice(i,1);renderFormPreviews();}
+
+// ━━ RECORD ━━
+async function doRecord(){
+  const species=document.getElementById('f-sp').value.trim();
+  const coords=document.getElementById('f-co').value.trim();
+  const [lat,lng]=coords.split(',').map(v=>parseFloat(v.trim()));
+  if(!species||isNaN(lat)||isNaN(lng)){toast('種名と座標を入力してください');return;}
+  const pin={
+    species,
+    family:document.getElementById('f-fa').value.trim(),
+    genus:document.getElementById('f-ge').value.trim(),
+    kingdom:document.getElementById('f-k').value,
+    lat,lng,
+    discoveredDate:document.getElementById('f-dt').value.trim()||'未記録',
+    location:document.getElementById('f-lo').value.trim(),
+    conservation:document.getElementById('f-cn').value,
+    details:document.getElementById('f-de').value.trim(),
+    images:formImgs.map(i=>i.dataUrl),
+    timestamp:new Date().toLocaleString()
+  };
+  pins.push(pin);
+  const idx=pins.length-1;
+  addMarker(pin,idx);
+  updateMapMarkers();
+  saveTxt(pin);
+  formImgs=[];lastFormFiles=[];renderFormPreviews();
+  resetForm();
+  toast('記録しました');
+  showPage('map');
+  map.setView([lat,lng],13);
+  setTimeout(()=>markers[idx]&&markers[idx].openPopup(),400);
+}
+function resetForm(){
+  ['f-sp','f-fa','f-ge','f-co','f-dt','f-lo','f-de'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cn').value='指定なし';
+  document.getElementById('f-k').value='植物界';
+  document.querySelectorAll('#ks .kb').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('f-coord-msg').textContent='';
+}
+document.querySelectorAll('#ks .kb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#ks .kb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('f-k').value=this.dataset.k;
+  });
+});
+
+// ━━ SAVE TXT ━━
+function saveTxt(p){
+  const esc=(p.details||'').replace(/\n/g,'\\n');
+  const imgs=p.images||[];
+  const imgLines=imgs.map((d,i)=>`画像${i+1}: ${d}`).join('\n');
+  const txt=`種名: ${p.species}\n界: ${p.kingdom}\n科: ${p.family||'未記録'}\n属: ${p.genus||'未記録'}\n座標: ${p.lat}, ${p.lng}\n発見日: ${p.discoveredDate}\n記録時間: ${p.timestamp}\n都道府県市町村: ${p.location||''}\n絶滅危惧種: ${p.conservation||'指定なし'}\n詳細: ${esc}\n${imgLines||'画像1: なし'}`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download=`bio_${Date.now()}.txt`;a.click();
+}
+
+// ━━ FILE LOAD ━━
+function loadFiles(input){
+  Array.from(input.files).forEach(file=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const lines=e.target.result.split('\n');
+      const g=k=>lines.find(l=>l.startsWith(k+': '))?.slice(k.length+2).trim()||'';
+      const coords=(g('座標')||'').split(',');
+      const lat=parseFloat(coords[0]),lng=parseFloat(coords[1]);
+      const species=g('種名');
+      if(!species||isNaN(lat)||isNaN(lng)){toast(`${file.name}: 形式エラー`);return;}
+      const imgs=[];
+      lines.forEach(l=>{
+        const m=l.match(/^画像\d+: (.+)/);
+        if(m&&m[1]!=='なし')imgs.push(m[1]);
+      });
+      if(!imgs.length){const old=g('画像');if(old&&old!=='なし')imgs.push(old);}
+      const pin={
+        species,kingdom:g('界'),family:g('科'),genus:g('属'),
+        lat,lng,discoveredDate:g('発見日'),timestamp:g('記録時間'),
+        location:g('都道府県市町村'),conservation:g('絶滅危惧種'),
+        details:(g('詳細')||'').replace(/\\n/g,'\n'),
+        images:imgs
+      };
+      pins.push(pin);
+      addMarker(pin,pins.length-1);
+      updateMapMarkers();
+      document.getElementById('d-cnt').textContent=pins.length;
+    };
+    r.readAsText(file);
+  });
+  input.value='';
+  setTimeout(()=>showPage('map'),1200);
+}
+
+function loadBoundary(input){
+  Array.from(input.files).forEach(file=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const topo=JSON.parse(e.target.result);
+        const key=Object.keys(topo.objects)[0];
+        const geo=topojson.feature(topo,topo.objects[key]);
+        const layer=L.geoJSON(geo,{style:{color:'#0F5474',weight:2,fillColor:'#0F5474',fillOpacity:.2}}).addTo(map);
+        boundaryLayers.push(layer);
+        map.fitBounds(L.featureGroup(boundaryLayers).getBounds());
+      }catch{toast('境界ファイルエラー');}
+    };
+    r.readAsText(file);
+  });
+  input.value='';
+}
+
+// ━━ LIST ━━
+document.querySelectorAll('#lf .ftb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#lf .ftb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');listKF=this.dataset.k;renderList();
+  });
+});
+function getBadge(k){return k==='動物界'?'ba':k==='菌界'?'bf':'bp';}
+function getBadgeLabel(k){return k.replace('界','');}
+function renderList(){
+  const q=document.getElementById('ls').value.trim().toLowerCase();
+  const wrap=document.getElementById('list-items');
+  wrap.innerHTML='';
+  const filtered=pins.filter(p=>{
+    if(listKF&&p.kingdom!==listKF)return false;
+    if(q){const hay=[p.species,p.family,p.kingdom,`${p.lat},${p.lng}`].join(' ').toLowerCase();if(!hay.includes(q))return false;}
     return true;
   });
-  if (filteredPins.length === 0) {
-    miniListItems.innerHTML = '<div style="padding:5px; text-align:center;">該当する記録はありません</div>';
-  } else {
-    filteredPins.forEach((obj) => {
-      const pin = obj.pin;
-      const index = obj.originalIndex;
-      const item = document.createElement('div');
-      item.style.display = 'flex';
-      item.style.alignItems = 'center';
-      item.style.marginBottom = '5px';
-      item.style.cursor = 'pointer';
-      item.style.borderBottom = '1px solid #ccc';
-      item.style.padding = '0';
-      item.style.height = '90px';
-      if (pin.imageUrl && pin.imageUrl !== 'なし') {
-        const imgContainer = document.createElement('div');
-        imgContainer.style.width = '100px';
-        imgContainer.style.height = '97px';
-        imgContainer.style.flexShrink = '0';
-        imgContainer.style.overflow = 'hidden';
-        imgContainer.style.margin = '0';
-        imgContainer.style.padding = '0';
-        const img = document.createElement('img');
-        img.src = pin.imageUrl;
-        img.alt = pin.species;
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'cover';
-        imgContainer.appendChild(img);
-        item.appendChild(imgContainer);
-      }
-      const textContainer = document.createElement('div');
-      textContainer.style.marginLeft = '5px';
-      textContainer.style.whiteSpace = 'nowrap';
-      textContainer.textContent = pin.species;
-      item.appendChild(textContainer);
-      item.addEventListener('click', () => {
-        showMap();
-        map.setView([pin.lat, pin.lng], 12);
-        setTimeout(() => {
-          if (pinMarkers[index]) {
-            pinMarkers[index].openPopup();
-          }
-        }, 300);
-      });
-      miniListItems.appendChild(item);
-    });
+  if(!filtered.length){
+    wrap.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg><p>記録がありません</p></div>`;
+    return;
   }
-  miniListContainer.style.display = 'block';
-}
-
-/*************** データリスト更新（エリア検索／界フィルター対応） ***************/
-function updateDataList() {
-  const tbody = document.getElementById('dataListTbody');
-  const keyword = document.getElementById('searchBar').value.trim().toLowerCase();
-  tbody.innerHTML = '';
-  storedPins.forEach((pin, index) => {
-    if (dataListKingdomFilter && pin.kingdom.toLowerCase() !== dataListKingdomFilter) return;
-    if (keyword) {
-      const searchFields = [
-        pin.species.toLowerCase(),
-        pin.family.toLowerCase(),
-        pin.kingdom.toLowerCase(),
-        `${pin.lat}, ${pin.lng}`
-      ];
-      if (!searchFields.some(field => field.includes(keyword))) return;
-    }
-    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.lat, pin.lng ? L.latLng(pin.lat, pin.lng) : L.latLng(0,0))) return;
-    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(pin.lat, pin.lng))) return;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><img src="${pin.imageUrl || ''}" alt="${pin.species}" style="max-width:140px; max-height:140px;"></td>
-      <td>${pin.species}</td>
-      <td>${pin.family || ''}</td>
-      <td>${pin.genus || ''}</td>
-      <td>${pin.lat}, ${pin.lng}</td>
-      <td>${pin.discoveredDate}</td>
-      <td>${pin.location || ''}</td>
-      <td>${pin.timestamp}</td>
-    `;
-    tr.addEventListener('click', () => {
-      showDetail(index);
-    });
-    tbody.appendChild(tr);
+  filtered.forEach(p=>{
+    const i=pins.indexOf(p);
+    const imgs=p.images||[];
+    const imgH=imgs.length
+      ?`<div class="lci"><img src="${imgs[0]}" loading="lazy"></div>`
+      :`<div class="lci"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21"/></svg></div>`;
+    const c=document.createElement('div');c.className='lc';
+    // デスクトップ用追加情報
+    const extraHtml=`<div class="lc-extra">${p.family?'科：'+p.family+'　':''
+    }${p.genus?'属：'+p.genus+'　':''
+    }${p.conservation&&p.conservation!=='指定なし'?'<span style="color:#b71c1c">⚠ '+p.conservation+'</span>　':''
+    }${p.lat&&p.lng?'<span style="color:#888">'+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+'</span>':''}</div>`;
+    c.innerHTML=`${imgH}<div class="lc-info"><div class="lc-name">${p.species}</div><div class="lc-date">${p.discoveredDate||''}${p.location?' · '+p.location:''}</div>${extraHtml}</div><span class="badge ${getBadge(p.kingdom)}">${getBadgeLabel(p.kingdom)}</span>`;
+    c.onclick=()=>openDetail(i);
+    wrap.appendChild(c);
   });
 }
 
-/*************** グリッド更新（エリア検索／界フィルター対応） ***************/
-function updateGrid() {
-  const gridContainer = document.getElementById('gridContainer');
-  const keyword = document.getElementById('gridSearchBar').value.trim().toLowerCase();
-  gridContainer.innerHTML = '';
-  storedPins.forEach((pin, index) => {
-    if (gridKingdomFilter && pin.kingdom.toLowerCase() !== gridKingdomFilter) return;
-    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, L.latLng(pin.lat, pin.lng))) return;
-    if (keyword) {
-      const searchFields = [
-        pin.species.toLowerCase(),
-        pin.family.toLowerCase(),
-        pin.kingdom.toLowerCase(),
-        `${pin.lat}, ${pin.lng}`
-      ];
-      if (!searchFields.some(field => field.includes(keyword))) return;
-    }
-    const card = document.createElement('div');
-    card.style.border = '1px solid #ddd';
-    card.style.borderRadius = '3px';
-    card.style.padding = '0px';
-    card.style.textAlign = 'center';
-    card.style.backgroundColor = '#f9f9f9';
-    card.style.display = 'flex';
-    card.style.flexDirection = 'column';
-    card.style.justifyContent = 'space-between';
-    card.style.height = '100%';
-    card.style.transition = 'background-color 0.3s ease';
-    card.addEventListener('mouseenter', () => {
-      card.style.backgroundColor = '#e0f7fa';
-      if(card.querySelector('img')){
-        card.querySelector('img').style.opacity = '0.7';
-      }
-    });
-    card.addEventListener('mouseleave', () => {
-      card.style.backgroundColor = '#f9f9f9';
-      if(card.querySelector('img')){
-        card.querySelector('img').style.opacity = '1';
-      }
-    });
-    let content = '';
-    if (pin.imageUrl) {
-      content += `<div style="width:100%; position:relative; padding-top:100%; overflow:hidden;">
-                    <img src="${pin.imageUrl}" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; cursor:pointer; transition:opacity 0.3s ease;">
-                  </div>`;
-    }
-    content += `<div style="margin-top:auto; padding:5px; background:#f9f9f9;">
-                  <strong style="font-size:18px;">${pin.species}</strong><br>
-                  <span style="font-size:14px; color:#555;">${pin.location || ''} ${pin.discoveredDate}</span>
-                </div>`;
-    card.addEventListener('click', () => {
-      showDetail(index);
-    });
-    card.innerHTML = content;
-    gridContainer.appendChild(card);
+// ━━ GRID ━━
+document.querySelectorAll('#gf .ftb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#gf .ftb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');gridKF=this.dataset.k;renderGrid();
   });
-}
-
-/*************** 画像プレビュー・モーダル ***************/
-document.getElementById('image').addEventListener('change', function(event) {
-  const file = event.target.files[0];
-  const previewContainer = document.getElementById('imagePreview');
-  previewContainer.innerHTML = '';
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      img.style.maxWidth = '200px';
-      img.style.maxHeight = '150px';
-      img.style.objectFit = 'contain';
-      previewContainer.appendChild(img);
-    };
-    reader.readAsDataURL(file);
-  }
 });
-function showImageModal(imageUrl) {
-  const modal = document.getElementById('imageModal');
-  const modalImage = document.getElementById('modalImage');
-  modalImage.src = imageUrl;
-  modal.style.display = 'flex';
-  modal.onclick = function() {
-    modal.style.display = 'none';
+function renderGrid(){
+  const q=document.getElementById('gs').value.trim().toLowerCase();
+  const wrap=document.getElementById('grid-items');
+  wrap.innerHTML='';
+  const filtered=pins.filter(p=>{
+    if(gridKF&&p.kingdom!==gridKF)return false;
+    if(q){const hay=[p.species,p.family,p.kingdom,`${p.lat},${p.lng}`].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    return true;
+  });
+  if(!filtered.length){
+    wrap.innerHTML=`<div class="empty" style="grid-column:1/-1"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg><p>記録がありません</p></div>`;
+    return;
+  }
+  filtered.forEach(p=>{
+    const i=pins.indexOf(p);
+    const imgs=p.images||[];
+    const c=document.createElement('div');c.className='gc';
+    const imgInner=imgs.length
+      ?`<img src="${imgs[0]}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">`
+      :`<svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6" fill="#c8e6c9"/></svg>`;
+    c.innerHTML=`<div class="gc-img" style="width:100%;aspect-ratio:1;">${imgInner}</div><div class="gc-info"><div class="gc-name">${p.species}</div><div class="gc-date">${p.discoveredDate||''}${p.location?' · '+p.location:''}</div></div>`;
+    c.onclick=()=>openDetail(i);
+    wrap.appendChild(c);
+  });
+}
+
+// ━━ DETAIL & SWIPER ━━
+let swiperIdx=0,swiperImgs=[];
+
+function openDetail(idx){
+  curDetail=idx;
+  const p=pins[idx];
+  document.getElementById('d-sp').textContent=p.species;
+  const consMap={'指定なし':'cn','準絶滅危惧(NT)':'cnt','絶滅危惧II(VU)':'cnv','絶滅危惧IB(EN)':'cne','絶滅危惧IA(CR)':'cnc','情報不足(DD)':'cnd'};
+  const cd=document.getElementById('d-cn');
+  cd.className='dc '+(consMap[p.conservation]||'cn');
+  cd.textContent=p.conservation||'';
+  document.getElementById('d-fa').textContent=p.family||'—';
+  document.getElementById('d-ge').textContent=p.genus||'—';
+  document.getElementById('d-dt').textContent=p.discoveredDate||'—';
+  document.getElementById('d-lo').textContent=p.location||'—';
+  document.getElementById('d-co').textContent=`${p.lat}, ${p.lng}`;
+  document.getElementById('d-no').textContent=p.details||'';
+  document.getElementById('d-nw').style.display=p.details?'block':'none';
+
+  swiperImgs=p.images||[];
+  const sw=document.getElementById('detail-swiper');
+  if(swiperImgs.length){
+    sw.style.display='block';
+    buildSwiper(0);
+    let tx=0;
+    sw.ontouchstart=e=>{tx=e.touches[0].clientX;};
+    sw.ontouchend=e=>{
+      const dx=e.changedTouches[0].clientX-tx;
+      if(Math.abs(dx)>40)swiperMove(dx<0?1:-1);
+    };
+  }else{sw.style.display='none';}
+
+  const mb=document.getElementById('dmap-box');
+  mb.innerHTML='';
+  if(dMapInst){dMapInst.remove();dMapInst=null;}
+  dMapInst=L.map(mb,{center:[p.lat,p.lng],zoom:13});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(dMapInst);
+  L.marker([p.lat,p.lng],{icon:icon(p.kingdom)}).addTo(dMapInst);
+  setTimeout(()=>{dMapInst.invalidateSize();dMapInst.setView([p.lat,p.lng],13);},300);
+
+  document.getElementById('d-wiki').innerHTML='読み込み中...';
+  fetch(`https://ja.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(p.species)}&format=json&origin=*&prop=text`)
+    .then(r=>r.json()).then(data=>{
+      if(data.error){document.getElementById('d-wiki').textContent='情報が見つかりませんでした。';return;}
+      const doc=new DOMParser().parseFromString(data.parse.text['*'],'text/html');
+      doc.querySelectorAll('table.infobox,.mw-references-wrap,.reflist,.thumb,.mw-editsection').forEach(el=>el.remove());
+      doc.querySelectorAll('a').forEach(a=>{a.removeAttribute('href');a.style.color='inherit';a.style.textDecoration='none';});
+      const allowed=['概要','分布','利用','種の保全状況評価'];
+      let html='',kids=Array.from((doc.querySelector('#mw-content-text')||doc.body).children),i=0,lead=[];
+      while(i<kids.length&&kids[i].tagName!=='H2'){lead.push(kids[i].outerHTML);i++;}
+      if(lead.length){const d2=document.createElement('div');d2.innerHTML=lead.join('');d2.querySelectorAll('img').forEach(e=>e.remove());html+=`<h2>概要</h2>${d2.innerHTML}`;}
+      while(i<kids.length){
+        if(kids[i].tagName==='H2'){
+          const t=kids[i].textContent.replace(/\[.*?\]/g,'').trim();
+          if(allowed.includes(t)){
+            html+=`<h2>${t}</h2>`;i++;
+            while(i<kids.length&&kids[i].tagName!=='H2'){
+              const el=kids[i].cloneNode(true);
+              if(t!=='種の保全状況評価')el.querySelectorAll('img').forEach(e=>e.remove());
+              html+=el.outerHTML;i++;
+            }
+          }else{i++;while(i<kids.length&&kids[i].tagName!=='H2')i++;}
+        }else i++;
+      }
+      document.getElementById('d-wiki').innerHTML=html||'情報が見つかりませんでした。';
+    }).catch(()=>{document.getElementById('d-wiki').textContent='読み込みに失敗しました。';});
+
+  showPage('detail');
+}
+
+function buildSwiper(idx){
+  swiperIdx=idx;
+  const track=document.getElementById('swiper-track');
+  track.innerHTML='';
+  swiperImgs.forEach(src=>{
+    const s=document.createElement('div');s.className='swiper-slide';
+    s.innerHTML=`<img src="${src}" onclick="openModal('${src}')">`;
+    track.appendChild(s);
+  });
+  track.style.transform=`translateX(-${swiperIdx*100}%)`;
+  const dots=document.getElementById('swiper-dots');
+  dots.innerHTML='';
+  if(swiperImgs.length>1){
+    swiperImgs.forEach((_,i)=>{
+      const d=document.createElement('div');d.className='sdot'+(i===idx?' active':'');
+      dots.appendChild(d);
+    });
+  }
+  document.getElementById('swiper-prev').style.display=swiperImgs.length>1?'flex':'none';
+  document.getElementById('swiper-next').style.display=swiperImgs.length>1?'flex':'none';
+}
+function swiperMove(dir){
+  swiperIdx=(swiperIdx+dir+swiperImgs.length)%swiperImgs.length;
+  document.getElementById('swiper-track').style.transform=`translateX(-${swiperIdx*100}%)`;
+  document.querySelectorAll('#swiper-dots .sdot').forEach((d,i)=>d.classList.toggle('active',i===swiperIdx));
+}
+
+function closeDetail(){
+  if(dMapInst){dMapInst.remove();dMapInst=null;}
+  showPage(prevPage==='detail'?'map':prevPage);
+}
+
+// ━━ EDIT ━━
+function refreshES(){
+  const sel=document.getElementById('e-sel');
+  sel.innerHTML='';
+  pins.forEach((p,i)=>{
+    const o=document.createElement('option');
+    o.value=i;o.textContent=`${p.species} (${p.timestamp||''})`;
+    sel.appendChild(o);
+  });
+  if(pins.length)loadER(0);
+}
+function loadER(idx){
+  idx=parseInt(idx);
+  if(isNaN(idx)||!pins[idx])return;
+  const p=pins[idx];
+  document.getElementById('e-k').value=p.kingdom;
+  document.querySelectorAll('#eks .kb').forEach(b=>b.classList.toggle('active',b.dataset.k===p.kingdom));
+  document.getElementById('e-sp').value=p.species;
+  document.getElementById('e-fa').value=p.family||'';
+  document.getElementById('e-ge').value=p.genus||'';
+  document.getElementById('e-dt').value=p.discoveredDate||'';
+  document.getElementById('e-lo').value=p.location||'';
+  document.getElementById('e-cn').value=p.conservation||'指定なし';
+  document.getElementById('e-co').value=`${p.lat}, ${p.lng}`;
+  document.getElementById('e-de').value=p.details||'';
+  editImgs=(p.images||[]).map(d=>({dataUrl:d}));
+  lastEditFiles=[];
+  document.getElementById('e-coord-msg').textContent='';
+  renderEditPreviews();
+}
+document.querySelectorAll('#eks .kb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#eks .kb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('e-k').value=this.dataset.k;
+  });
+});
+async function addEditImgs(input){
+  lastEditFiles=Array.from(input.files);
+  for(const f of input.files){
+    const d=await readFile(f);
+    editImgs.push({dataUrl:d});
+  }
+  input.value='';
+  renderEditPreviews();
+}
+function removeEditImg(i){editImgs.splice(i,1);renderEditPreviews();}
+function renderEditPreviews(){
+  const wrap=document.getElementById('e-imgs-preview');
+  wrap.innerHTML='';
+  editImgs.forEach((im,i)=>{
+    const d=document.createElement('div');d.className='prev-thumb';
+    d.innerHTML=`<img src="${im.dataUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;"><button class="rm" onclick="removeEditImg(${i})">×</button>`;
+    wrap.appendChild(d);
+  });
+}
+async function doUpdate(){
+  const idx=parseInt(document.getElementById('e-sel').value);
+  if(isNaN(idx))return;
+  const coords=document.getElementById('e-co').value.split(',').map(v=>parseFloat(v.trim()));
+  const [lat,lng]=coords;
+  if(isNaN(lat)||isNaN(lng)){toast('座標が正しくありません');return;}
+  pins[idx]={...pins[idx],
+    kingdom:document.getElementById('e-k').value,
+    species:document.getElementById('e-sp').value.trim(),
+    family:document.getElementById('e-fa').value.trim(),
+    genus:document.getElementById('e-ge').value.trim(),
+    lat,lng,
+    discoveredDate:document.getElementById('e-dt').value.trim()||'未記録',
+    location:document.getElementById('e-lo').value.trim(),
+    conservation:document.getElementById('e-cn').value,
+    details:document.getElementById('e-de').value.trim(),
+    images:editImgs.map(i=>i.dataUrl)
   };
+  markers[idx]&&markers[idx].setLatLng([lat,lng]);
+  markers[idx]&&markers[idx].setIcon(icon(pins[idx].kingdom));
+  markers[idx]&&markers[idx].bindPopup(buildPopup(pins[idx],idx),{maxWidth:220});
+  renderMiniList();
+  toast('更新しました');
+}
+function doSaveTxt(){
+  const idx=parseInt(document.getElementById('e-sel').value);
+  if(isNaN(idx))return;
+  saveTxt(pins[idx]);
+}
+function doDelete(){
+  const idx=parseInt(document.getElementById('e-sel').value);
+  if(isNaN(idx)||!pins[idx])return;
+  if(!confirm(`「${pins[idx].species}」を削除しますか？`))return;
+  if(markers[idx]){map.hasLayer(markers[idx])&&markers[idx].remove();markers[idx]=null;}
+  pins.splice(idx,1);markers.splice(idx,1);
+  pins.forEach((p,i)=>markers[i]&&markers[i].bindPopup(buildPopup(p,i),{maxWidth:220}));
+  renderMiniList();
+  refreshES();toast('削除しました');
 }
 
-/*************** 検索バー（データリスト・グリッド） ***************/
-document.getElementById('searchBar').addEventListener('input', updateDataList);
-document.getElementById('gridSearchBar').addEventListener('input', updateGrid);
-
-/*************** 観察記録フォーム内 界選択ボタン ***************/
-document.querySelectorAll('#kingdomSelector button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#kingdomSelector button').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    document.getElementById('kingdom').value = this.getAttribute('data-kingdom');
-  });
-});
-/*************** データリスト・グリッド界フィルター ***************/
-document.querySelectorAll('#dataListKingdomFilter button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#dataListKingdomFilter button').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    dataListKingdomFilter = this.getAttribute('data-kingdom').toLowerCase();
-    updateDataList();
-  });
-});
-document.querySelectorAll('#gridKingdomFilter button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#gridKingdomFilter button').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    gridKingdomFilter = this.getAttribute('data-kingdom').toLowerCase();
-    updateGrid();
-  });
-});
-/*************** マップ左上のフィルター ***************/
-document.querySelectorAll('#mapKingdomFilter button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#mapKingdomFilter button').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    mapKingdomFilter = this.getAttribute('data-kingdom');
-    if (mapKingdomFilter) {
-      mapKingdomFilter = mapKingdomFilter.toLowerCase();
-    }
-    updateMapMarkers();
-    updateMiniList();
-  });
-});
-/*************** マーカー更新処理 ***************/
-function updateMarker(index) {
-  const pin = storedPins[index];
-  if (pinMarkers[index]) {
-    let chosenIcon;
-    if (pin.kingdom === '動物界') {
-      chosenIcon = animalIcon;
-    } else if (pin.kingdom === '菌界') {
-      chosenIcon = fungiIcon;
-    } else {
-      chosenIcon = plantIcon;
-    }
-    pinMarkers[index].setIcon(chosenIcon);
-    pinMarkers[index].setLatLng([pin.lat, pin.lng]);
-    let popupContent = `<strong>種名:</strong> ${pin.species}<br>`;
-    if (pin.conservation && pin.conservation !== "指定なし") {
-      popupContent += `<strong>絶滅危惧種:</strong> ${pin.conservation}<br>`;
-    }
-    popupContent += `<strong>座標:</strong> ${pin.lat}, ${pin.lng}<br>
-                     <strong>発見日:</strong> ${pin.discoveredDate}<br>`;
-    if (pin.imageUrl) {
-      popupContent += `<img src="${pin.imageUrl}" style="max-width:220px; max-height:180px; display:block; margin-bottom:5px; cursor:pointer;" onclick="showImageModal('${pin.imageUrl}')">`;
-    }
-    popupContent += `<button onclick="showDetail(${index})" style="padding:7px 15px; margin:0 10px; font-size:13px; background-color:#00b31b; color:white; border:none; cursor:pointer; border-radius:5px; transition:background-color 0.3s ease;">詳細</button>`;
-    pinMarkers[index].bindPopup(popupContent);
-  }
+// ━━ MODAL / TOAST ━━
+function openModal(src){
+  document.getElementById('img-modal-img').src=src;
+  document.getElementById('img-modal').classList.add('open');
 }
-function refreshAllMarkers() {
-  for (let i = 0; i < storedPins.length; i++) {
-    if (pinMarkers[i]) {
-      updateMarker(i);
-    }
-  }
-  updateMapMarkers();
-  alert('ピンが更新されました');
-}
-document.getElementById('refreshMarkersBtn').addEventListener('click', refreshAllMarkers);
-/*************** マップ上のピン表示更新（エリア検索／界フィルター対応） ***************/
-function updateMapMarkers() {
-  for (let i = 0; i < storedPins.length; i++) {
-    let marker = pinMarkers[i];
-    if (!marker) continue;
-    // ヒートマップ表示中はピンを非表示
-    if (heatmapOn) {
-      if (map.hasLayer(marker)) marker.remove();
-      continue;
-    }
-    let pinLatLng = L.latLng(storedPins[i].lat, storedPins[i].lng);
-    if (mapKingdomFilter && storedPins[i].kingdom.toLowerCase() !== mapKingdomFilter) {
-      if (map.hasLayer(marker)) marker.remove();
-      continue;
-    }
-    if (areaFilterLayer && !isPointInsideArea(areaFilterLayer, pinLatLng)) {
-      if (map.hasLayer(marker)) marker.remove();
-      continue;
-    }
-    if (!map.hasLayer(marker)) marker.addTo(map);
-  }
-}
-/*************** エリア検索ボタン ***************/
-document.getElementById('startAreaSearch').addEventListener('click', function() {
-  alert('マップ上で矩形または円形を描いてエリアを選択してください。描画後、自動的にフィルターが適用されます。');
-});
-document.getElementById('clearAreaSearch').addEventListener('click', function() {
-  areaFilterLayer = null;
-  if (drawnItems) drawnItems.clearLayers();
-  updateMapMarkers();
-  updateMiniList();
-  updateDataList();
-  updateGrid();
-  updateHeatmap();
-});
-
-/*************** ナビゲーションボタン ***************/
-document.getElementById('recordFormButton').addEventListener('click', showRecordForm);
-document.getElementById('mapButton').addEventListener('click', showMap);
-document.getElementById('dataButton').addEventListener('click', showDataList);
-document.getElementById('gridButton').addEventListener('click', showGrid);
-document.getElementById('editDataButton').addEventListener('click', showEditPage);
-document.getElementById('boardButton').addEventListener('click', showBoard);
-
-/*************** 編集画面関連 ***************/
-function updateEditRecordSelect() {
-  const select = document.getElementById('editRecordSelect');
-  select.innerHTML = '';
-  storedPins.forEach((pin, index) => {
-    const option = document.createElement('option');
-    option.value = index;
-    option.textContent = `${pin.species} (${pin.timestamp})`;
-    select.appendChild(option);
-  });
-  if (storedPins.length > 0) {
-    loadEditRecord(0);
-  }
-}
-function loadEditRecord(index) {
-  const pin = storedPins[index];
-  document.getElementById('editSpecies').value = pin.species;
-  document.getElementById('editFamily').value = pin.family || '';
-  document.getElementById('editGenus').value = pin.genus || '';
-  document.getElementById('editCoordinates').value = `${pin.lat}, ${pin.lng}`;
-  document.getElementById('editDiscoveredDate').value = pin.discoveredDate;
-  document.getElementById('editLocation').value = pin.location || '';
-  document.getElementById('editDetails').value = pin.details || '';
-  document.getElementById('editKingdom').value = pin.kingdom;
-  document.querySelectorAll('#editKingdomSelector button').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.getAttribute('data-kingdom') === pin.kingdom) {
-      btn.classList.add('active');
-    }
-  });
-  document.getElementById('editConservation').value = pin.conservation || "指定なし";
-  const preview = document.getElementById('editImagePreview');
-  preview.innerHTML = '';
-  if (pin.imageUrl) {
-    const img = document.createElement('img');
-    img.src = pin.imageUrl;
-    img.style.maxWidth = '200px';
-    img.style.maxHeight = '150px';
-    img.style.objectFit = 'contain';
-    img.style.position = "absolute";
-    img.style.bottom = "-250px";
-    preview.appendChild(img);
-  }
-}
-document.getElementById('editRecordSelect').addEventListener('change', function() {
-  loadEditRecord(parseInt(this.value));
-});
-document.querySelectorAll('#editKingdomSelector button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#editKingdomSelector button').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    document.getElementById('editKingdom').value = this.getAttribute('data-kingdom');
-  });
-});
-document.getElementById('editImage').addEventListener('change', function(event) {
-  const file = event.target.files[0];
-  const preview = document.getElementById('editImagePreview');
-  preview.innerHTML = '';
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      img.style.maxWidth = '200px';
-      img.style.maxHeight = '150px';
-      img.style.objectFit = 'contain';
-      preview.appendChild(img);
-    };
-    reader.readAsDataURL(file);
-  }
-});
-document.getElementById('updateRecordButton').addEventListener('click', function() {
-  const select = document.getElementById('editRecordSelect');
-  const index = parseInt(select.value);
-  if (isNaN(index)) return;
-  const kingdom = document.getElementById('editKingdom').value.trim();
-  const species = document.getElementById('editSpecies').value.trim();
-  const family = document.getElementById('editFamily').value.trim();
-  const genus = document.getElementById('editGenus').value.trim();
-  const coordinates = document.getElementById('editCoordinates').value.trim();
-  const [lat, lng] = coordinates.split(',').map(coord => parseFloat(coord.trim()));
-  const discoveredDate = document.getElementById('editDiscoveredDate').value.trim() || '未記録';
-  const locationText = document.getElementById('editLocation').value.trim();
-  const details = document.getElementById('editDetails').value.trim();
-  const conservation = document.getElementById('editConservation').value.trim();
-  let imageData = storedPins[index].imageUrl;
-  const imageFile = document.getElementById('editImage').files[0];
-  if (imageFile) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      imageData = e.target.result;
-      updateRecord(index, kingdom, species, family, genus, lat, lng, discoveredDate, locationText, details, conservation, imageData);
-    };
-    reader.readAsDataURL(imageFile);
-  } else {
-    updateRecord(index, kingdom, species, family, genus, lat, lng, discoveredDate, locationText, details, conservation, imageData);
-  }
-});
-function updateRecord(index, kingdom, species, family, genus, lat, lng, discoveredDate, locationText, details, conservation, imageData) {
-  storedPins[index].kingdom = kingdom;
-  storedPins[index].species = species;
-  storedPins[index].family = family;
-  storedPins[index].genus = genus;
-  storedPins[index].lat = lat;
-  storedPins[index].lng = lng;
-  storedPins[index].discoveredDate = discoveredDate;
-  storedPins[index].location = locationText;
-  storedPins[index].details = details;
-  storedPins[index].imageUrl = imageData;
-  storedPins[index].conservation = conservation;
-  localStorage.setItem('pins', JSON.stringify(storedPins));
-  updateMarker(index);
-  updateMiniList();
-  updateDataList();
-  updateGrid();
-  alert('記録を更新しました');
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
 }
 
-/*************** ファイル保存ボタン（編集画面） ***************/
-document.getElementById('saveRecordAsTxtButton').addEventListener('click', function() {
-  const select = document.getElementById('editRecordSelect');
-  const index = parseInt(select.value);
-  if (isNaN(index)) return;
-  const pin = storedPins[index];
-  const escapedDetails = (pin.details || '').replace(/\n/g, '\\n');
-  let data = `種名: ${pin.species}\n` +
-             `界: ${pin.kingdom || '未選択'}\n` +
-             `科: ${pin.family || '未記録'}\n` +
-             `属: ${pin.genus || '未記録'}\n` +
-             `座標: ${pin.lat}, ${pin.lng}\n` +
-             `発見日: ${pin.discoveredDate}\n` +
-             `記録時間: ${pin.timestamp}\n` +
-             `都道府県市町村: ${pin.location || ''}\n` +
-             `絶滅危惧種: ${pin.conservation || '指定なし'}\n` +
-             `詳細: ${escapedDetails}\n` +
-             `画像: ${pin.imageUrl || 'なし'}`;
-  const blob = new Blob([data], { type: 'text/plain' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `edited_record_${Date.now()}.txt`;
-  link.click();
-});
-
-/*************** ヒートマップ表示ボタン ***************/
-document.getElementById('heatmapButton').addEventListener('click', function() {
-  heatmapOn = !heatmapOn;
-  if (heatmapOn) {
-    this.textContent = 'ヒートマップ非表示';
-  } else {
-    this.textContent = 'ヒートマップ表示';
-  }
-  updateHeatmap();
-  updateMapMarkers();
-});
-
-/*************** 初期化 ***************/
-initializeMap();
-showMap();
+// ━━ INIT ━━
+initMap();
+showPage('map');
 </script>
 </body>
 </html>
