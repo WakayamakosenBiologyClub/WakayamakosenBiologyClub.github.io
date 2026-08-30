@@ -1,0 +1,2713 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>生物記録</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<style>
+:root{
+  --gd:#1B4332;--gm:#52B788;--gl:#95D5B2;
+  --cream:#FEFAE0;--soil:#D4A373;
+  --text:#1a1a1a;--tl:#666;--white:#fff;
+  --nav:64px;--hdr:52px;--r:12px;
+  --sh:0 2px 12px rgba(0,0,0,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--cream);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+#hdr{height:var(--hdr);min-height:var(--hdr);background:var(--gd);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;letter-spacing:.05em;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0;z-index:100;position:relative;}
+#hdr-t{display:flex;align-items:center;gap:8px;}
+#hdr-t svg{width:22px;height:22px;fill:var(--gl);}
+#hdr-user{position:absolute;right:14px;top:0;bottom:0;display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:500;letter-spacing:0;color:var(--gl);max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#hdr-user.dev{color:#ffd54f;}
+
+/* PAGES */
+#pages{flex:1;overflow:hidden;position:relative;}
+.page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;}
+.page.active{display:block;}
+#map-page{overflow:hidden;}
+
+/* NAV */
+#nav{height:var(--nav);min-height:var(--nav);background:var(--gd);display:flex;align-items:stretch;box-shadow:0 -2px 12px rgba(0,0,0,.25);flex-shrink:0;z-index:100;}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.45);font-size:.58rem;font-family:inherit;transition:color .2s;padding:0;position:relative;}
+.nb svg{width:24px;height:24px;transition:transform .2s;}
+.nb.active{color:var(--gl);}
+.nb.active svg{transform:scale(1.15);}
+.nb.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:32px;height:3px;background:var(--gl);border-radius:0 0 4px 4px;}
+
+/* MAP */
+#map-page{padding:0;display:none;}
+#map-page.active{display:flex;flex-direction:row;}
+#map{flex:1;height:100%;}
+
+/* MAP サイドミニリスト（デスクトップのみ） */
+#map-minilist{display:none;width:260px;min-width:260px;background:#fff;border-left:1px solid #ddd;overflow-y:auto;flex-shrink:0;}
+@media(min-width:900px){
+  #map-minilist{display:flex;flex-direction:column;}
+}
+#map-minilist-hdr{padding:10px 12px 8px;background:var(--gd);color:#fff;font-size:.78rem;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+#map-minilist-hdr svg{width:14px;height:14px;fill:var(--gl);}
+#map-minilist-body{flex:1;overflow-y:auto;}
+.ml-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .15s;}
+.ml-item:hover{background:#f5faf7;}
+.ml-img{width:44px;height:44px;border-radius:6px;flex-shrink:0;background:#e8f5ee;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.ml-img img{width:100%;height:100%;object-fit:cover;}
+.ml-img svg{width:20px;height:20px;fill:#c8e6c9;}
+.ml-name{font-size:.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ml-date{font-size:.68rem;color:var(--tl);margin-top:1px;}
+.ml-badge{font-size:.58rem;padding:1px 5px;border-radius:8px;font-weight:700;flex-shrink:0;margin-left:auto;}
+
+/* マップ上フローティングUI */
+#map-fab{position:absolute;bottom:16px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.fab-btn{width:44px;height:44px;border-radius:22px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:opacity .2s;}
+.fab-btn svg{width:20px;height:20px;pointer-events:none;}
+.fab-main{background:var(--gd);color:#fff;}
+.fab-main svg{fill:#fff;}
+.fab-sub{background:#fff;color:var(--gd);font-size:.65rem;font-family:inherit;font-weight:700;width:auto;padding:0 12px;border-radius:20px;gap:6px;}
+.fab-sub svg{fill:var(--gd);width:16px;height:16px;}
+.fab-sub.on{background:var(--gm);color:#fff;}
+.fab-sub.on svg{fill:#fff;}
+#map-filter-panel{position:absolute;bottom:72px;right:12px;z-index:1000;background:rgba(27,67,50,.95);border-radius:var(--r);padding:12px;display:none;flex-direction:column;gap:8px;min-width:200px;box-shadow:var(--sh);}
+#map-filter-panel.open{display:flex;}
+.fp-label{color:rgba(255,255,255,.6);font-size:.68rem;letter-spacing:.05em;}
+.fp-row{display:flex;gap:6px;flex-wrap:wrap;}
+.fp-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 10px;font-size:.72rem;font-family:inherit;cursor:pointer;white-space:nowrap;}
+.fp-btn.active{background:var(--gm);border-color:var(--gm);}
+.kdot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
+.dp{background:#52b788;}.da{background:#e76f51;}.df{background:#9b72cf;}
+
+/* Leaflet layer control positioning */
+.leaflet-top.leaflet-right{top:10px;}
+
+/* FORM */
+#form-page{background:var(--cream);padding:16px 16px 24px;}
+.ks{display:flex;gap:8px;margin-bottom:16px;}
+.kb{flex:1;padding:10px 4px;border:2px solid transparent;border-radius:10px;font-size:.8rem;font-family:inherit;font-weight:500;cursor:pointer;background:#fff;color:var(--tl);}
+.kb[data-k="植物界"].active{background:#e8f5ee;border-color:#52B788;color:#1B4332;}
+.kb[data-k="動物界"].active{background:#fdf0ec;border-color:#e76f51;color:#8b3a1e;}
+.kb[data-k="菌界"].active{background:#f3eefa;border-color:#9b72cf;color:#4a2d7a;}
+.fs{background:#fff;border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.fs h3{font-size:.78rem;color:var(--tl);margin-bottom:12px;letter-spacing:.06em;text-transform:uppercase;}
+.fi{margin-bottom:12px;}
+.fi:last-child{margin-bottom:0;}
+.fi label{display:block;font-size:.78rem;color:var(--tl);margin-bottom:5px;font-weight:500;}
+.fi input,.fi textarea,.fi select{width:100%;padding:11px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem;font-family:inherit;background:var(--cream);color:var(--text);appearance:none;transition:border-color .2s;}
+.fi input:focus,.fi textarea:focus,.fi select:focus{outline:none;border-color:var(--gm);}
+.fi textarea{height:80px;resize:none;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ipb{width:100%;padding:12px;border-radius:8px;border:2px dashed #c8e6c9;background:#f1f8f4;color:var(--gd);font-size:.85rem;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+.ipb svg{width:18px;height:18px;}
+/* multi-image preview strip */
+#imgs-preview{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:4px;}
+.prev-thumb{position:relative;flex-shrink:0;}
+.prev-thumb img{width:80px;height:80px;object-fit:cover;border-radius:8px;display:block;}
+.prev-thumb .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:10px;background:#e53935;color:#fff;border:none;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.rbtn{width:100%;padding:16px;background:var(--gd);color:#fff;border:none;border-radius:var(--r);font-size:1rem;font-weight:700;font-family:inherit;cursor:pointer;margin-top:8px;box-shadow:0 4px 16px rgba(27,67,50,.35);display:flex;align-items:center;justify-content:center;gap:8px;}
+.rbtn:active{opacity:.85;}
+.rbtn svg{width:20px;height:20px;}
+
+/* 座標・市町村読み込みボタン行 */
+.coord-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.coord-btn{flex:1;min-width:0;padding:8px 6px;background:#e8f5ee;border:1.5px solid #c8e6c9;border-radius:8px;font-size:.72rem;font-family:inherit;font-weight:600;color:var(--gd);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;}
+.coord-btn svg{width:13px;height:13px;flex-shrink:0;}
+.coord-msg{font-size:.72rem;color:var(--tl);margin-top:4px;min-height:16px;}
+.coord-msg.err{color:#e53935;}
+
+/* LIST */
+#list-page{background:#f0f4f1;padding-bottom:8px;}
+.lh{background:#fff;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);position:sticky;top:0;z-index:10;}
+.sb{display:flex;align-items:center;gap:8px;background:var(--cream);border:1.5px solid #ddd;border-radius:20px;padding:8px 14px;margin-bottom:10px;max-width:100%;overflow:hidden;}
+.sb svg{width:16px;height:16px;fill:#aaa;flex-shrink:0;}
+.sb input{border:none;background:none;flex:1;min-width:0;width:100%;font-size:.88rem;font-family:inherit;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sb input:focus{outline:none;}
+.sb input::placeholder{overflow:hidden;text-overflow:ellipsis;}
+.ft{display:flex;gap:6px;}
+.ftb{flex:1;padding:6px 0;border:none;border-radius:16px;font-size:.72rem;font-family:inherit;font-weight:500;cursor:pointer;background:#f0f0f0;color:var(--tl);}
+.ftb.active{background:var(--gd);color:#fff;}
+#list-items{padding:8px 12px;}
+.lc{background:#fff;border-radius:10px;display:flex;align-items:center;gap:12px;padding:10px;margin-bottom:8px;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;}
+.lc:active{opacity:.85;}
+.lci{width:64px;height:64px;border-radius:8px;flex-shrink:0;background:#e8f5ee;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.lci img{width:100%;height:100%;object-fit:cover;}
+.lci svg{width:28px;height:28px;fill:#c8e6c9;}
+.lc-info{flex:1;min-width:0;}
+.lc-name{font-size:.95rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lc-date{font-size:.75rem;color:var(--tl);}
+/* デスクトップ用リスト追加情報 */
+.lc-extra{display:none;font-size:.72rem;color:var(--tl);margin-top:3px;}
+@media(min-width:900px){
+  .lc-extra{display:block;}
+  .lci{width:80px;height:80px;}
+  .lc-name{font-size:1rem;}
+  #list-items{padding:10px 20px;}
+  .lc{padding:14px;}
+}
+/* リスト：選択/ダウンロード/削除 ツールバー */
+.list-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px;}
+.ltb{padding:6px 14px;border:1.5px solid var(--gd);border-radius:16px;background:#fff;color:var(--gd);font-size:.72rem;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:5px;}
+.ltb svg{width:14px;height:14px;stroke:var(--gd);}
+.ltb.active{background:var(--gd);color:#fff;}
+.ltb.active svg{stroke:#fff;}
+.lc.lc-locked{opacity:.5;cursor:default;}
+.lc-check-disabled{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.72rem;flex-shrink:0;}
+.list-sel-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;background:#e8f5ee;border:1.5px solid var(--gm);border-radius:12px;padding:9px 12px;margin-bottom:10px;}
+.lsb-all{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--gd);font-weight:700;cursor:pointer;}
+.lsb-all input{width:16px;height:16px;accent-color:var(--gd);cursor:pointer;}
+#list-sel-count{font-size:.72rem;color:var(--tl);flex:1;min-width:60px;}
+.lsb-actions{display:flex;gap:8px;width:100%;}
+.lsb-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;border:none;border-radius:10px;font-size:.78rem;font-weight:700;font-family:inherit;cursor:pointer;}
+.lsb-btn svg{width:15px;height:15px;}
+.lsb-btn.dl{background:var(--gd);color:#fff;}
+.lsb-btn.del{background:#c0392b;color:#fff;}
+.lsb-btn:disabled{opacity:.5;cursor:not-allowed;}
+@media(min-width:900px){.lsb-actions{width:auto;}.list-sel-bar{flex-wrap:nowrap;}}
+.lc-check{display:flex;align-items:center;justify-content:center;flex-shrink:0;padding-right:2px;}
+.lc-check input{width:19px;height:19px;accent-color:var(--gd);cursor:pointer;}
+.lc.selected{background:#e8f5ee;box-shadow:0 0 0 2px var(--gm) inset;}
+.badge{font-size:.62rem;padding:2px 7px;border-radius:10px;font-weight:700;flex-shrink:0;}
+.bp{background:#e8f5ee;color:#1B4332;}.ba{background:#fdf0ec;color:#8b3a1e;}.bf{background:#f3eefa;color:#4a2d7a;}
+.empty{text-align:center;padding:60px 20px;color:var(--tl);}
+.empty svg{width:56px;height:56px;fill:#c8e6c9;margin-bottom:16px;}
+
+/* GRID */
+#grid-page{background:#f0f4f1;padding-bottom:8px;}
+#grid-items{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 12px;}
+@media(min-width:700px){#grid-items{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:1000px){#grid-items{grid-template-columns:repeat(4,1fr);padding:12px 20px;}}
+.gc{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;}
+.gc:active{opacity:.85;}
+.gc-img{width:100%;aspect-ratio:1;object-fit:cover;background:#e8f5ee;display:flex;align-items:center;justify-content:center;}
+.gc-img img{width:100%;height:100%;object-fit:cover;}
+.gc-img svg{width:40px;height:40px;fill:#c8e6c9;}
+.gc-info{padding:8px 10px;}
+.gc-name{font-size:.88rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gc-date{font-size:.7rem;color:var(--tl);}
+
+/* DETAIL */
+#detail-page{background:var(--cream);}
+.dbk{position:sticky;top:0;z-index:1000;background:var(--gd);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:.9rem;font-weight:700;cursor:pointer;border:none;width:100%;font-family:inherit;}
+.dbk svg{width:20px;height:20px;fill:currentColor;}
+/* Photo swiper */
+#detail-swiper{position:relative;width:100%;overflow:hidden;background:#000;touch-action:pan-y;}
+#swiper-track{display:flex;transition:transform .3s ease;}
+.swiper-slide{flex-shrink:0;width:100%;}
+.swiper-slide img{width:100%;max-height:280px;object-fit:cover;display:block;}
+#swiper-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px;}
+.sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);}
+.sdot.active{background:#fff;}
+#swiper-prev,#swiper-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+#swiper-prev{left:6px;}#swiper-next{right:6px;}
+.dbody{padding:16px;}
+.dsp{font-size:1.4rem;font-weight:700;margin-bottom:4px;line-height:1.3;}
+.dc{display:inline-block;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:14px;}
+.cn{display:none;}.cnt{background:#fff9c4;color:#827717;}.cnv{background:#ffe0b2;color:#bf360c;}
+.cne{background:#ffccbc;color:#b71c1c;}.cnc{background:#f8bbd0;color:#880e4f;}.cnd{background:#e0e0e0;color:#424242;}
+.cnx{background:#c5cae9;color:#1a237e;}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.di{background:#fff;border-radius:8px;padding:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.di-l{font-size:.68rem;color:var(--tl);margin-bottom:2px;}
+.di-v{font-size:.85rem;font-weight:600;}
+.di.full{grid-column:1/-1;}
+.dnotes{background:#fff;border-radius:8px;padding:14px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.dnotes-l{font-size:.7rem;color:var(--tl);margin-bottom:6px;}
+.dnotes-t{font-size:.88rem;line-height:1.65;white-space:pre-wrap;}
+#dmap-box{width:100%;height:220px;border-radius:8px;overflow:hidden;margin-bottom:24px;position:relative;z-index:0;}
+.wiki-s{background:#fff;border-radius:8px;padding:14px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.wiki-s h4{font-size:.78rem;color:var(--tl);margin-bottom:10px;}
+.wiki-c{font-size:.85rem;line-height:1.7;}
+.wiki-c h2{font-size:.95rem;margin:12px 0 6px;border-bottom:1px solid #eee;padding-bottom:4px;}
+
+/* EDIT */
+#edit-page{background:var(--cream);padding:0;}
+.eh{background:var(--gd);color:#fff;padding:14px 16px;font-size:1rem;font-weight:700;}
+.eb{padding:16px 16px 24px;}
+.esw{background:#fff;border-radius:var(--r);padding:14px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.esw label{font-size:.78rem;color:var(--tl);display:block;margin-bottom:6px;}
+.esw select{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.88rem;font-family:inherit;background:var(--cream);color:var(--text);appearance:none;}
+.ea{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+.eab{padding:13px;border:none;border-radius:10px;font-size:.88rem;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+.eab:active{opacity:.8;}
+.eu{background:var(--gd);color:#fff;}.es2{background:var(--soil);color:#fff;}
+.ed{background:#e53935;color:#fff;grid-column:1/-1;}
+.eab svg{width:16px;height:16px;fill:currentColor;}
+#e-imgs-preview{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:4px;}
+
+/* DATA PAGE */
+#data-page{background:var(--cream);padding:16px;}
+.dc2{background:#fff;border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.dc2 h3{font-size:.85rem;font-weight:700;margin-bottom:6px;color:var(--gd);}
+.dc2 p{font-size:.78rem;color:var(--tl);line-height:1.6;margin-bottom:12px;}
+.dfb{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border:none;border-radius:10px;font-size:.9rem;font-weight:700;font-family:inherit;cursor:pointer;}
+.dfb svg{width:18px;height:18px;fill:currentColor;}
+.bl{background:var(--gd);color:#fff;}.bm{background:var(--gm);color:#fff;}
+.dstat{background:var(--gd);border-radius:var(--r);padding:16px;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:14px;}
+.dsn{font-size:1.8rem;font-weight:700;}.dsl{font-size:.75rem;opacity:.7;}
+
+/* MODAL */
+#img-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);align-items:center;justify-content:center;}
+#img-modal.open{display:flex;}
+#img-modal img{max-width:96vw;max-height:92vh;object-fit:contain;border-radius:8px;}
+
+/* DATE PICKER DRUM */
+#date-picker-overlay{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);}
+#date-picker-overlay.open{display:block;}
+#date-picker-sheet{position:fixed;bottom:0;left:0;right:0;z-index:9001;background:#fff;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom,0);display:none;}
+#date-picker-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid #eee;}
+#date-picker-hdr span{font-size:.95rem;font-weight:700;color:var(--gd);}
+#date-picker-hdr button{background:none;border:none;font-size:.88rem;font-family:inherit;cursor:pointer;padding:4px 8px;border-radius:8px;}
+#date-picker-hdr .dp-cancel{color:var(--tl);}
+#date-picker-hdr .dp-ok{background:var(--gd);color:#fff;font-weight:700;}
+#date-picker-drums{display:flex;justify-content:center;height:216px;position:relative;}
+#date-picker-drums::before,#date-picker-drums::after{content:'';position:absolute;left:0;right:0;height:80px;z-index:2;pointer-events:none;}
+#date-picker-drums::before{top:0;background:linear-gradient(to bottom,rgba(255,255,255,1),rgba(255,255,255,0));}
+#date-picker-drums::after{bottom:0;background:linear-gradient(to top,rgba(255,255,255,1),rgba(255,255,255,0));}
+.dp-col{flex:1;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:relative;}
+.dp-col::-webkit-scrollbar{display:none;}
+.dp-col-inner{padding:80px 0;}
+.dp-item{height:44px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;color:#bbb;scroll-snap-align:center;user-select:none;}
+.dp-center-line{position:absolute;top:50%;left:8px;right:8px;transform:translateY(-50%);height:44px;border-top:2px solid var(--gl);border-bottom:2px solid var(--gl);border-radius:4px;pointer-events:none;z-index:3;}
+
+/* 元画質チェックボックス */
+.orig-quality-row{display:flex;align-items:center;gap:0;background:#fff;border:1.5px solid #c8e6c9;border-radius:10px;padding:11px 14px;margin-bottom:8px;cursor:pointer;width:100%;}
+.orig-quality-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--gd);flex-shrink:0;cursor:pointer;margin:0;}
+.orig-quality-label{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--gd);font-weight:500;margin-left:10px;line-height:1.3;}
+.orig-quality-row:has(input:checked){background:#e8f5ee;border-color:var(--gm);}
+
+/* MAP SEARCH BOX */
+/* 左右に余白を取り、拡大縮小ボタン（左上）とレイヤー切替ボタン（右上）に被らないようにする */
+#map-search-box{position:absolute;top:10px;left:56px;right:140px;z-index:1000;max-width:calc(100% - 196px);}
+#map-search-box .sb{margin-bottom:0;background:#fff;box-shadow:var(--sh);}
+#map-search-box input{font-size:clamp(.66rem,3.4vw,.88rem);}
+/* 画面が狭い場合はさらに余白を詰めて、文字がバーからはみ出ないようにする */
+@media(max-width:480px){
+  #map-search-box{left:48px;right:104px;max-width:calc(100% - 152px);}
+  #map-search-box .sb{padding:7px 10px;gap:6px;}
+}
+@media(max-width:360px){
+  #map-search-box{left:44px;right:88px;max-width:calc(100% - 132px);}
+  #map-search-box .sb{padding:6px 8px;gap:5px;}
+}
+/* デスクトップ幅ではサイドのミニリスト分もさらに右側を空ける */
+@media(min-width:900px){
+  #map-search-box{right:400px;max-width:calc(100% - 456px);}
+}
+#map-count-badge{position:absolute;bottom:16px;left:12px;z-index:1000;background:rgba(27,67,50,.88);color:#fff;font-size:.68rem;padding:5px 11px;border-radius:14px;box-shadow:var(--sh);display:none;}
+#map-count-badge.show{display:block;}
+
+/* RECORDER PICKER SHEET */
+#recorder-picker-overlay{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);}
+#recorder-picker-overlay.open{display:block;}
+#recorder-picker-sheet{position:fixed;bottom:0;left:0;right:0;z-index:9001;background:#fff;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom,0);max-height:60vh;display:none;flex-direction:column;}
+.rp-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid #eee;flex-shrink:0;}
+.rp-hdr span{font-size:.95rem;font-weight:700;color:var(--gd);}
+.rp-hdr button{background:none;border:none;font-size:.85rem;font-family:inherit;cursor:pointer;padding:4px 8px;border-radius:8px;color:var(--tl);}
+#recorder-picker-list{overflow-y:auto;padding:10px 14px 18px;}
+.rp-item{display:block;width:100%;text-align:left;padding:13px 14px;margin-bottom:6px;border:1.5px solid #e0e0e0;border-radius:10px;background:var(--cream);font-size:.9rem;font-family:inherit;color:var(--text);cursor:pointer;}
+.rp-item:active{background:#e8f5ee;border-color:var(--gm);}
+
+/* INFINITE SCROLL SENTINEL */
+.scroll-loading{text-align:center;padding:16px;color:var(--tl);font-size:.75rem;}
+
+/* TOAST */
+#toast{position:fixed;bottom:calc(var(--nav) + 14px);left:50%;transform:translateX(-50%) translateY(10px);background:var(--gd);color:#fff;padding:10px 20px;border-radius:20px;font-size:.82rem;box-shadow:var(--sh);z-index:5000;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Leaflet overrides */
+.leaflet-control-zoom{border-radius:8px!important;overflow:hidden;}
+.leaflet-touch .leaflet-control-zoom-in,.leaflet-touch .leaflet-control-zoom-out{font-size:20px!important;line-height:34px!important;width:34px!important;height:34px!important;}
+
+/* ログイン中はメイン画面を隠す */
+body.pre-login #hdr,body.pre-login #pages,body.pre-login #nav{display:none!important;}
+
+/* LOGIN SCREEN */
+#login-overlay{position:fixed;inset:0;z-index:20000;background:linear-gradient(160deg,var(--gd),var(--gm));display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+#login-box{background:#fff;border-radius:16px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.35);}
+#login-logo{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:22px;color:var(--gd);}
+#login-logo svg{width:38px;height:38px;fill:var(--gm);}
+#login-logo span{font-size:1.05rem;font-weight:700;letter-spacing:.05em;text-align:center;}
+#login-error{font-size:.78rem;color:#e53935;margin:-4px 0 10px;min-height:1em;display:none;}
+#login-error.show{display:block;}
+#login-btn{margin-top:4px;}
+</style>
+</head>
+<body class="pre-login">
+
+<!-- LOGIN SCREEN -->
+<div id="login-overlay">
+  <div id="login-box">
+    <div id="login-logo">
+      <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+      <span>生物記録システム<br>ログイン</span>
+    </div>
+    <form id="login-form" autocomplete="off" onsubmit="event.preventDefault();attemptLogin();">
+      <div class="fi">
+        <label>記録者名</label>
+        <input type="text" id="login-recorder" placeholder="お名前を入力（フルネーム漢字）" list="recorder-history-list" autocomplete="off">
+      </div>
+      <div class="fi">
+        <label>パスワード *</label>
+        <input type="password" id="login-password" placeholder="パスワードを入力" autocomplete="off">
+      </div>
+      <div id="login-error"></div>
+      <button id="login-btn" class="rbtn" type="submit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        ログイン
+      </button>
+    </form>
+  </div>
+</div>
+
+<div id="hdr">
+  <div id="hdr-t">
+    <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+    生物記録システム
+  </div>
+  <div id="hdr-user"></div>
+</div>
+
+<div id="pages">
+
+<!-- MAP -->
+<div id="map-page" class="page">
+  <div id="map"></div>
+  <!-- マップ上 生物名検索ボックス -->
+  <div id="map-search-box">
+    <div class="sb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="map-search" placeholder="記録者・科・属・市町村・座標・種名で検索..." oninput="onMapSearchInput()">
+    </div>
+  </div>
+  <div id="map-count-badge"></div>
+  <!-- デスクトップ用サイドミニリスト -->
+  <div id="map-minilist">
+    <div id="map-minilist-hdr">
+      <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+      観察記録
+    </div>
+    <div id="map-minilist-body"></div>
+  </div>
+  <!-- フローティングFAB群 -->
+  <div id="map-fab">
+    <button class="fab-btn fab-main" onclick="toggleFilterPanel()" title="フィルター">
+      <svg viewBox="0 0 24 24"><path d="M3 4h18v2l-7 7v7l-4-2v-5L3 6z" fill="#fff"/></svg>
+    </button>
+  </div>
+  <!-- フィルターパネル -->
+  <div id="map-filter-panel">
+    <div class="fp-label">界フィルター</div>
+    <div class="fp-row" id="map-kf">
+      <button class="fp-btn active" data-k="">すべて</button>
+      <button class="fp-btn" data-k="植物界"><span class="kdot dp"></span>植物</button>
+      <button class="fp-btn" data-k="動物界"><span class="kdot da"></span>動物</button>
+      <button class="fp-btn" data-k="菌界"><span class="kdot df"></span>菌類</button>
+    </div>
+    <div class="fp-label">表示</div>
+    <div class="fp-row">
+      <button class="fab-sub fp-btn" id="hm-btn" onclick="toggleHeatmap()">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:currentColor;vertical-align:middle;margin-right:3px"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74C19 5.13 15.87 2 12 2zm-1 15v-2h2v2h-2zm1-4c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>
+        ヒートマップ
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FORM -->
+<div id="form-page" class="page">
+  <!-- 写真セクションを最上部に -->
+  <div class="fs" style="margin-bottom:12px;">
+    <h3>写真（複数可）</h3>
+    <div class="fi">
+      <label for="f-img">
+        <div class="ipb">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          写真を追加（複数可）
+        </div>
+      </label>
+      <input type="file" id="f-img" accept="image/*" multiple style="display:none">
+      <div id="imgs-preview"></div>
+    </div>
+  </div>
+
+  <div class="ks" id="ks">
+    <button class="kb active" data-k="植物界">
+      <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#52B788;vertical-align:middle;margin-right:3px"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+      植物界
+    </button>
+    <button class="kb" data-k="動物界">
+      <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#e76f51;vertical-align:middle;margin-right:3px"><path d="M4.5 9.5c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9-1c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-9 8c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9 0c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-4.5-5c-2.5 0-6 1.5-6 4.5v1.5h12v-1.5c0-3-3.5-4.5-6-4.5z"/></svg>
+      動物界
+    </button>
+    <button class="kb" data-k="菌界">
+      <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#9b72cf;vertical-align:middle;margin-right:3px"><path d="M12 2C9.5 2 6 3.8 6 8c0 2.3 1.2 4.3 3 5.4V22h6v-8.6c1.8-1.1 3-3.1 3-5.4 0-4.2-3.5-6-6-6zm-1 18v-2h2v2h-2zm1-4c-2.2 0-4-1.8-4-4S9.8 8 12 8s4 1.8 4 4-1.8 4-4 4z"/></svg>
+      菌界
+    </button>
+  </div>
+  <input type="hidden" id="f-k" value="植物界">
+  <div class="fs">
+    <h3>記録者</h3>
+    <div class="fi">
+      <label>記録者 *</label>
+      <input type="text" id="f-recorder" placeholder="記録者名を入力" list="recorder-history-list">
+      <div class="coord-actions">
+        <button class="coord-btn" type="button" onclick="openRecorderPicker('f-recorder')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          記録者を選択
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="fs">
+    <h3>基本情報</h3>
+    <div class="fi"><label>種名 *</label><input type="text" id="f-sp" placeholder="例：ヤマザクラ">
+      <div class="coord-actions" style="margin-top:6px;">
+        <button class="coord-btn" onclick="lookupGbif('f-sp','f-fa','f-ge','f-gbif-msg')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+          iNaturalistから科・属を自動入力
+        </button>
+      </div>
+      <div class="coord-msg" id="f-gbif-msg"></div>
+    </div>
+    <div class="fr">
+      <div class="fi"><label>科</label><input type="text" id="f-fa" placeholder="バラ科"></div>
+      <div class="fi"><label>属</label><input type="text" id="f-ge" placeholder="サクラ属"></div>
+    </div>
+  </div>
+  <div class="fs">
+    <h3>発見情報</h3>
+    <div class="fr">
+      <div class="fi">
+        <label>発見日</label>
+        <input type="text" id="f-dt" readonly placeholder="日付を選択" onclick="openDatePicker()" style="cursor:pointer;caret-color:transparent;">
+      </div>
+      <div class="fi"><label>絶滅危惧・外来</label>
+        <select id="f-cn">
+          <option value="指定なし">指定なし</option>
+          <option value="準絶滅危惧(NT)">準絶滅危惧(NT)</option>
+          <option value="絶滅危惧II(VU)">絶滅危惧II(VU)</option>
+          <option value="絶滅危惧IB(EN)">絶滅危惧IB(EN)</option>
+          <option value="絶滅危惧IA(CR)">絶滅危惧IA(CR)</option>
+          <option value="情報不足(DD)">情報不足(DD)</option>
+          <option value="外来生物">外来生物</option>
+        </select>
+      </div>
+    </div>
+    <div class="fi">
+      <label>座標 * （緯度, 経度）</label>
+      <input type="text" id="f-co" placeholder="34.83380, 135.17530">
+      <div class="coord-actions">
+        <button class="coord-btn" onclick="readExifCoords('f-co','f-coord-msg')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          写真から座標読み込み
+        </button>
+        <button class="coord-btn" onclick="loadMunicipality('f-co','f-lo','f-coord-msg')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          座標から市町村取得
+        </button>
+      </div>
+      <div class="coord-msg" id="f-coord-msg"></div>
+    </div>
+    <div class="fi"><label>都道府県・市町村</label><input type="text" id="f-lo" placeholder="和歌山県和歌山市"></div>
+  </div>
+  <div class="fs">
+    <h3>メモ</h3>
+    <div class="fi"><label>メモ</label><textarea id="f-de" placeholder="個体数、環境など"></textarea></div>
+  </div>
+  <label class="orig-quality-row" for="f-orig-quality">
+    <input type="checkbox" id="f-orig-quality">
+    <span class="orig-quality-label">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      元の画質で保存する（ファイルサイズが大きくなります）
+    </span>
+  </label>
+  <button class="rbtn" onclick="doRecord()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    記録する
+  </button>
+</div>
+
+<!-- LIST -->
+<div id="list-page" class="page">
+  <div class="lh">
+    <div class="sb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="ls" placeholder="記録者・科・属・市町村・座標・種名で検索..." oninput="renderList()">
+    </div>
+    <div class="ft" id="lf">
+      <button class="ftb active" data-k="">すべて</button>
+      <button class="ftb" data-k="植物界">植物</button>
+      <button class="ftb" data-k="動物界">動物</button>
+      <button class="ftb" data-k="菌界">菌類</button>
+    </div>
+    <div class="list-toolbar">
+      <button class="ltb" id="list-select-toggle" onclick="toggleListSelectMode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 20 6"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10"/></svg>
+        選択
+      </button>
+    </div>
+    <div class="list-sel-bar" id="list-sel-bar" style="display:none;">
+      <label class="lsb-all">
+        <input type="checkbox" id="list-select-all" onchange="toggleSelectAll(this.checked)">
+        全選択
+      </label>
+      <span id="list-sel-count">0件選択中</span>
+      <div class="lsb-actions">
+        <button class="lsb-btn dl" onclick="downloadSelectedRecords()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          ダウンロード
+        </button>
+        <button class="lsb-btn del" onclick="deleteSelectedRecords()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          削除
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="list-items"></div>
+</div>
+
+<!-- GRID -->
+<div id="grid-page" class="page">
+  <div class="lh">
+    <div class="sb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="gs" placeholder="記録者・科・属・市町村・座標・種名で検索..." oninput="renderGrid()">
+    </div>
+    <div class="ft" id="gf">
+      <button class="ftb active" data-k="">すべて</button>
+      <button class="ftb" data-k="植物界">植物</button>
+      <button class="ftb" data-k="動物界">動物</button>
+      <button class="ftb" data-k="菌界">菌類</button>
+    </div>
+  </div>
+  <div id="grid-items"></div>
+</div>
+
+<!-- DETAIL -->
+<div id="detail-page" class="page">
+  <button class="dbk" onclick="closeDetail()">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>戻る
+  </button>
+  <div id="detail-swiper" style="display:none">
+    <div id="swiper-track"></div>
+    <div id="swiper-dots"></div>
+    <button id="swiper-prev" onclick="swiperMove(-1)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button id="swiper-next" onclick="swiperMove(1)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="18" height="18"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div class="dbody">
+    <div id="d-cn" class="dc"></div>
+    <div class="dsp" id="d-sp"></div>
+    <div class="dgrid">
+      <div class="di"><div class="di-l">科</div><div class="di-v" id="d-fa">—</div></div>
+      <div class="di"><div class="di-l">属</div><div class="di-v" id="d-ge">—</div></div>
+      <div class="di"><div class="di-l">発見日</div><div class="di-v" id="d-dt">—</div></div>
+      <div class="di"><div class="di-l">都道府県</div><div class="di-v" id="d-lo">—</div></div>
+      <div class="di"><div class="di-l">座標</div><div class="di-v" id="d-co" style="font-size:.78rem;">—</div></div>
+      <div class="di"><div class="di-l">標高</div><div class="di-v" id="d-el">—</div></div>
+      <div class="di"><div class="di-l">記録者</div><div class="di-v" id="d-rec">—</div></div>
+    </div>
+    <div class="dnotes" id="d-nw">
+      <div class="dnotes-l">メモ</div>
+      <div class="dnotes-t" id="d-no"></div>
+    </div>
+    <div id="dmap-box"></div>
+    <div class="wiki-s">
+      <h4>Wikipedia より</h4>
+      <div class="wiki-c" id="d-wiki">読み込み中...</div>
+    </div>
+  </div>
+  
+</div>
+
+<!-- EDIT -->
+<div id="edit-page" class="page">
+  <div class="eh">データ編集</div>
+  <div class="eb">
+    <div class="esw">
+      <label>編集する記録</label>
+      <select id="e-sel" onchange="loadER(this.value)"></select>
+    </div>
+
+    <!-- 写真セクションを最上部に -->
+    <div class="fs">
+      <h3>写真</h3>
+      <div class="fi">
+        <label for="e-img">
+          <div class="ipb">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            写真を追加・変更
+          </div>
+        </label>
+        <input type="file" id="e-img" accept="image/*" multiple style="display:none" onchange="addEditImgs(this)">
+        <div id="e-imgs-preview"></div>
+      </div>
+    </div>
+
+    <div class="ks" id="eks">
+      <button class="kb" data-k="植物界">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#52B788;vertical-align:middle;margin-right:3px"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg>
+        植物界
+      </button>
+      <button class="kb" data-k="動物界">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#e76f51;vertical-align:middle;margin-right:3px"><path d="M4.5 9.5c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9-1c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-9 8c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm9 0c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-4.5-5c-2.5 0-6 1.5-6 4.5v1.5h12v-1.5c0-3-3.5-4.5-6-4.5z"/></svg>
+        動物界
+      </button>
+      <button class="kb" data-k="菌界">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="fill:#9b72cf;vertical-align:middle;margin-right:3px"><path d="M12 2C9.5 2 6 3.8 6 8c0 2.3 1.2 4.3 3 5.4V22h6v-8.6c1.8-1.1 3-3.1 3-5.4 0-4.2-3.5-6-6-6zm-1 18v-2h2v2h-2zm1-4c-2.2 0-4-1.8-4-4S9.8 8 12 8s4 1.8 4 4-1.8 4-4 4z"/></svg>
+        菌界
+      </button>
+    </div>
+    <input type="hidden" id="e-k" value="">
+    <div class="fs">
+      <h3>記録者</h3>
+      <div class="fi">
+        <label>記録者 *</label>
+        <input type="text" id="e-recorder" placeholder="記録者名を入力" list="recorder-history-list">
+        <div class="coord-actions">
+          <button class="coord-btn" type="button" onclick="openRecorderPicker('e-recorder')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            記録者を選択
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="fs">
+      <h3>基本情報</h3>
+      <div class="fi"><label>種名</label><input type="text" id="e-sp" placeholder="種名">
+        <div class="coord-actions" style="margin-top:6px;">
+          <button class="coord-btn" onclick="lookupGbif('e-sp','e-fa','e-ge','e-gbif-msg')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+            iNaturalistから科・属を自動入力
+          </button>
+        </div>
+        <div class="coord-msg" id="e-gbif-msg"></div>
+      </div>
+      <div class="fr">
+        <div class="fi"><label>科</label><input type="text" id="e-fa"></div>
+        <div class="fi"><label>属</label><input type="text" id="e-ge"></div>
+      </div>
+    </div>
+    <div class="fs">
+      <h3>発見情報</h3>
+      <div class="fr">
+        <div class="fi"><label>発見日</label><input type="text" id="e-dt" readonly placeholder="日付を選択" onclick="openDatePicker('e-dt')" style="cursor:pointer;caret-color:transparent;"></div>
+        <div class="fi"><label>絶滅危惧・外来</label>
+          <select id="e-cn">
+            <option value="指定なし">指定なし</option>
+            <option value="準絶滅危惧(NT)">準絶滅危惧(NT)</option>
+            <option value="絶滅危惧II(VU)">絶滅危惧II(VU)</option>
+            <option value="絶滅危惧IB(EN)">絶滅危惧IB(EN)</option>
+            <option value="絶滅危惧IA(CR)">絶滅危惧IA(CR)</option>
+            <option value="情報不足(DD)">情報不足(DD)</option>
+            <option value="外来生物">外来生物</option>
+          </select>
+        </div>
+      </div>
+      <div class="fi">
+        <label>座標</label>
+        <input type="text" id="e-co" placeholder="緯度, 経度">
+        <div class="coord-actions">
+          <button class="coord-btn" onclick="readExifCoords('e-co','e-coord-msg')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            写真から座標読み込み
+          </button>
+          <button class="coord-btn" onclick="loadMunicipality('e-co','e-lo','e-coord-msg')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+            座標から市町村取得
+          </button>
+        </div>
+        <div class="coord-msg" id="e-coord-msg"></div>
+      </div>
+      <div class="fi"><label>都道府県・市町村</label><input type="text" id="e-lo"></div>
+    </div>
+    <div class="fs">
+      <h3>メモ</h3>
+      <div class="fi"><label>メモ</label><textarea id="e-de"></textarea></div>
+    </div>
+    <label class="orig-quality-row" for="e-orig-quality">
+      <input type="checkbox" id="e-orig-quality">
+      <span class="orig-quality-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        元の画質で保存する（ファイルサイズが大きくなります）
+      </span>
+    </label>
+    <div class="ea">
+      <button class="eab eu" onclick="doUpdate()">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>更新
+      </button>
+      <button class="eab es2" onclick="doSaveTxt()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>保存
+      </button>
+      <button class="eab ed" onclick="doDelete()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>この記録を削除
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DATA -->
+<div id="data-page" class="page">
+  <div class="dstat" style="margin:16px 16px 0;">
+    <svg viewBox="0 0 24 24" width="32" height="32" style="fill:rgba(255,255,255,.7)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+    <div><div class="dsn" id="d-cnt">0</div><div class="dsl">件の記録</div></div>
+  </div>
+  <div style="padding:16px;">
+    <div class="dc2" style="border-left:4px solid var(--gm);">
+      <h3>オンライン同期</h3>
+      <p id="sync-status">接続状態を確認しています…</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="dfb bl" style="flex:1;min-width:180px;" onclick="refreshOnlineData(true)">
+          <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>最新データを再取得
+        </button>
+        <button class="dfb bm" style="flex:1;min-width:180px;" onclick="migrateLegacyRecords()">
+          <svg viewBox="0 0 24 24"><path d="M12 16l4-5h-3V3h-2v8H8l4 5zm-7 2h14v2H5v-2z"/></svg>この端末の旧記録を移行
+        </button>
+      </div>
+    </div>
+    <div class="dc2">
+      <h3>
+        <svg viewBox="0 0 24 24" width="16" height="16" style="fill:var(--gd);vertical-align:middle;margin-right:4px"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 16.46 1 14.55 1c-1.3 0-2.4.8-3.11 1.87l-.44.67-.44-.67C9.85 1.8 8.76 1 7.45 1 5.54 1 4 2.54 4 4.64c0 .48.11.92.18 1.36H2v14h20V6zm-7.45 12H7V8h5.55v10zm7.45 0h-5.55V8H20v10z"/></svg>
+        観察記録を読み込む
+      </h3>
+      <p>以前のバージョンで記録時に保存した .txt ファイルを選択すると、この記録データに取り込まれます（複数可）。</p>
+      <label class="dfb bl" for="file-in">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>ファイルを選択
+      </label>
+      <input type="file" id="file-in" accept=".txt" multiple style="display:none" onchange="loadFiles(this)">
+    </div>
+    <div class="dc2">
+      <h3>
+        <svg viewBox="0 0 24 24" width="16" height="16" style="fill:var(--gd);vertical-align:middle;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM7 13h10v1.5H7V13zm0 3h10v1.5H7V16zm0-6h4v1.5H7V10z"/></svg>
+        Excelにエクスポート
+      </h3>
+      <p>読み込まれた全記録（<span id="xl-cnt">0</span>件）を1シートにまとめてダウンロードします。</p>
+      <div id="xl-preview" style="display:none;margin-bottom:12px;overflow-x:auto;">
+        <table id="xl-table" style="width:100%;border-collapse:collapse;font-size:.72rem;"></table>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="dfb" style="background:#217346;color:#fff;flex:1;" onclick="buildXlPreview()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+          データをプレビュー
+        </button>
+        <button class="dfb" id="xl-dl-btn" style="background:#155724;color:#fff;flex:1;display:none;" onclick="exportXlsx()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excelダウンロード (.xlsx)
+        </button>
+      </div>
+    </div>
+    <div class="dc2">
+      <h3>
+        <svg viewBox="0 0 24 24" width="16" height="16" style="fill:var(--gd);vertical-align:middle;margin-right:4px"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18" stroke="var(--cream)" stroke-width="1.5"/><line x1="16" y1="6" x2="16" y2="22" stroke="var(--cream)" stroke-width="1.5"/></svg>
+        境界データを読み込む
+      </h3>
+      <p>TopoJSON / GeoJSON を選択すると地図に境界線を表示。</p>
+      <label class="dfb bm" for="bound-in">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>境界ファイルを選択
+      </label>
+      <input type="file" id="bound-in" accept=".json,.topojson" multiple style="display:none" onchange="loadBoundary(this)">
+    </div>
+  </div>
+</div>
+
+</div><!-- /pages -->
+
+<nav id="nav">
+  <button class="nb active" id="nb-map" onclick="showPage('map')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>マップ
+  </button>
+  <button class="nb" id="nb-form" onclick="showPage('form')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>記録
+  </button>
+  <button class="nb" id="nb-list" onclick="showPage('list')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>リスト
+  </button>
+  <button class="nb" id="nb-grid" onclick="showPage('grid')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>グリッド
+  </button>
+  <button class="nb" id="nb-edit" onclick="showPage('edit')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>編集
+  </button>
+  <button class="nb" id="nb-data" onclick="showPage('data')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>データ
+  </button>
+</nav>
+
+<!-- DATE PICKER DRUM -->
+<div id="date-picker-overlay" onclick="closeDatePicker(false)"></div>
+<div id="date-picker-sheet">
+  <div id="date-picker-hdr">
+    <button class="dp-cancel" onclick="closeDatePicker(false)">キャンセル</button>
+    <span>発見日</span>
+    <button class="dp-ok" onclick="closeDatePicker(true)">決定</button>
+  </div>
+  <div id="date-picker-drums">
+    <div class="dp-center-line"></div>
+    <div class="dp-col" id="dp-year"><div class="dp-col-inner" id="dp-year-inner"></div></div>
+    <div class="dp-col" id="dp-month"><div class="dp-col-inner" id="dp-month-inner"></div></div>
+    <div class="dp-col" id="dp-day"><div class="dp-col-inner" id="dp-day-inner"></div></div>
+  </div>
+</div>
+
+<datalist id="recorder-history-list"></datalist>
+
+<!-- RECORDER PICKER SHEET -->
+<div id="recorder-picker-overlay" onclick="closeRecorderPicker()"></div>
+<div id="recorder-picker-sheet">
+  <div class="rp-hdr">
+    <span>記録者を選択</span>
+    <button onclick="closeRecorderPicker()">閉じる</button>
+  </div>
+  <div id="recorder-picker-list"></div>
+</div>
+
+<div id="img-modal" onclick="this.classList.remove('open')"><img id="img-modal-img" src="" alt=""></div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/topojson-client@3"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ━━ ログイン ━━
+const LOGIN_PASSWORD='wakosenbioclub';
+let pendingLoginRecorder='';
+let currentRecorder=''; // ログイン中の記録者名（本人の記録の判定に使用）
+function attemptLogin(){
+  const passEl=document.getElementById('login-password');
+  const nameEl=document.getElementById('login-recorder');
+  const errEl=document.getElementById('login-error');
+  const pass=passEl.value;
+  const name=nameEl.value.trim();
+  if(pass!==LOGIN_PASSWORD){
+    errEl.textContent='パスワードが正しくありません';
+    errEl.classList.add('show');
+    passEl.value='';
+    passEl.focus();
+    return;
+  }
+  errEl.classList.remove('show');
+  pendingLoginRecorder=name;
+  currentRecorder=name;
+  document.getElementById('login-overlay').style.display='none';
+  document.body.classList.remove('pre-login');
+  updateHdrUser();
+  initApp();
+}
+
+// ━━ 権限（記録者本人の記録のみ 編集/削除/ダウンロード 可） & 開発者モード ━━
+let devMode=false; // Rキー5連続押下でON/OFFがトグルされる
+let rPressCount=0;
+let rPressResetTimer=null;
+function isEditableTarget(el){
+  if(!el)return false;
+  const tag=el.tagName;
+  return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||el.isContentEditable;
+}
+window.addEventListener('keydown',function(e){
+  if(e.repeat)return; // キー長押しの連続入力はカウントしない
+  if(isEditableTarget(document.activeElement))return; // 入力欄でのタイピング中は無視
+  if(e.key==='r'||e.key==='R'){
+    rPressCount++;
+    clearTimeout(rPressResetTimer);
+    rPressResetTimer=setTimeout(()=>{rPressCount=0;},1200);
+    if(rPressCount>=5){
+      rPressCount=0;
+      clearTimeout(rPressResetTimer);
+      devMode=!devMode;
+      onDevModeChange();
+    }
+  }else{
+    rPressCount=0;
+    clearTimeout(rPressResetTimer);
+  }
+});
+function onDevModeChange(){
+  updateHdrUser();
+  toast(devMode?'開発者モード ON：すべての記録を編集・削除・ダウンロードできます':'開発者モード OFF：自分の記録のみ操作できます');
+  try{refreshES();}catch(e){}
+  try{renderList();}catch(e){}
+}
+// pがログイン中の記録者本人の記録か（開発者モード中は常にtrue）
+function isOwner(p){
+  return devMode || (!!currentRecorder && !!p && p.recorder===currentRecorder);
+}
+function updateHdrUser(){
+  const el=document.getElementById('hdr-user');
+  if(!el)return;
+  let txt=currentRecorder||'';
+  if(devMode)txt+=(txt?' ':'')+'【開発者モード】';
+  el.textContent=txt;
+  el.classList.toggle('dev',devMode);
+}
+// 記録者履歴はログイン画面でも使えるよう、先に読み込んでおく
+refreshRecorderDatalistSafe();
+function refreshRecorderDatalistSafe(){
+  try{refreshRecorderDatalist();}catch(e){}
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  const p=document.getElementById('login-password');
+  if(p)p.focus();
+});
+
+// ━━ STATE ━━
+let pins=[],markers=[];
+let map;
+let hmOn=false,hmLayer=null;
+let mapKF='',listKF='',gridKF='';
+let mapSearchQuery='';
+let curDetail=-1,prevPage='map';
+let dMapInst=null,boundaryLayers=[];
+let formImgs=[];
+let editImgs=[];
+let listSelectMode=false;
+let selectedPinIds=new Set();
+const MAX_MAP_MARKERS=100; // マップに同時表示するピンの上限（超えた分はランダム抽出）
+const LIST_PAGE_SIZE=24;   // リスト/グリッドの1回あたり読み込み件数
+
+// EXIF読み込み用：最後に選択された画像ファイルを保持
+let lastFormFiles=[];
+let lastEditFiles=[];
+
+const ICONS={
+  '植物界':L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',iconSize:[15,25],iconAnchor:[7,25],popupAnchor:[1,-20]}),
+  '動物界':L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',iconSize:[15,25],iconAnchor:[7,25],popupAnchor:[1,-20]}),
+  '菌界':L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',iconSize:[15,25],iconAnchor:[7,25],popupAnchor:[1,-20]})
+};
+const icon=k=>ICONS[k]||ICONS['植物界'];
+
+// ━━ オンラインDB（Supabase） ━━
+// この2つだけ、自分のSupabaseプロジェクトの値に置き換えてください。
+const SUPABASE_URL='https://bzuyymmvclvkgmminpsc.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_JHhTL9ZU8dZCmf6gfuIgdw_y2CpFQ2G';
+const SUPABASE_BUCKET='bio-images';
+const SUPABASE_TABLE='bio_records';
+const supabaseConfigured=SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('YOUR_') && !SUPABASE_ANON_KEY.includes('YOUR_');
+const sbClient=(window.supabase&&supabaseConfigured)?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false}}):null;
+let dbAvailable=!!sbClient;
+let realtimeChannel=null;
+let refreshTimer=null;
+
+function setSyncStatus(msg,ok=false){
+  const el=document.getElementById('sync-status');
+  if(!el)return;
+  el.textContent=msg;
+  el.style.color=ok?'var(--gd)':'#b71c1c';
+}
+
+function normalizeRemotePin(row){
+  return {
+    id:row.id,
+    species:row.species||'', kingdom:row.kingdom||'植物界', family:row.family||'', genus:row.genus||'',
+    lat:Number(row.lat), lng:Number(row.lng), discoveredDate:row.discovered_date||'未記録',
+    timestamp:row.recorded_at?new Date(row.recorded_at).toLocaleString('ja-JP'):new Date().toLocaleString('ja-JP'),
+    location:row.location||'', conservation:row.conservation||'指定なし', recorder:row.recorder||'',
+    details:row.details||'', images:Array.isArray(row.images)?row.images:[]
+  };
+}
+
+function storagePathFromUrl(url){
+  if(typeof url!=='string'||!url.startsWith(SUPABASE_URL))return null;
+  const marker=`/storage/v1/object/public/${SUPABASE_BUCKET}/`;
+  const i=url.indexOf(marker);
+  return i>=0?decodeURIComponent(url.slice(i+marker.length)):null;
+}
+function dataUrlToBlob(dataUrl){
+  const m=dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+  if(!m)return null;
+  const bin=atob(m[2]);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:m[1]||'image/jpeg'});
+}
+async function uploadDataUrl(dataUrl, recordId, idx){
+  if(!sbClient || typeof dataUrl!=='string' || !dataUrl.startsWith('data:'))return dataUrl;
+  const blob=dataUrlToBlob(dataUrl);
+  if(!blob)throw new Error('画像データを読み込めませんでした');
+  const ext=(blob.type.split('/')[1]||'jpg').replace('jpeg','jpg').replace('svg+xml','svg');
+  const path=`records/${recordId}/${crypto.randomUUID()}-${idx}.${ext}`;
+  const {error}=await sbClient.storage.from(SUPABASE_BUCKET).upload(path,blob,{contentType:blob.type,cacheControl:'31536000',upsert:false});
+  if(error)throw error;
+  const {data}=sbClient.storage.from(SUPABASE_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+async function uploadPendingImages(images, recordId){
+  const out=[];
+  for(let i=0;i<(images||[]).length;i++) out.push(await uploadDataUrl(images[i],recordId,i));
+  return out;
+}
+async function deleteStorageImages(images){
+  if(!sbClient)return;
+  const paths=(images||[]).map(storagePathFromUrl).filter(Boolean);
+  if(!paths.length)return;
+  const {error}=await sbClient.storage.from(SUPABASE_BUCKET).remove(paths);
+  if(error)console.warn('Storage delete error',error);
+}
+
+async function dbInit(){
+  if(!sbClient){
+    dbAvailable=false;
+    setSyncStatus('未設定：Supabase URL / Publishable Key を入力してください');
+    return;
+  }
+  try{
+    const {error}=await sbClient.from(SUPABASE_TABLE).select('id',{head:true,count:'exact'}).limit(1);
+    if(error)throw error;
+    dbAvailable=true;
+    setSyncStatus('オンラインDBに接続中',true);
+    setupRealtime();
+  }catch(e){
+    dbAvailable=false;
+    setSyncStatus(`接続エラー：${e.message||e}`);
+  }
+}
+async function dbGetAll(){
+  if(!sbClient)return [];
+  const {data,error}=await sbClient.from(SUPABASE_TABLE).select('*').order('recorded_at',{ascending:false});
+  if(error)throw error;
+  return (data||[]).map(normalizeRemotePin);
+}
+async function dbAdd(pin){
+  if(!sbClient)throw new Error('オンラインDBが設定されていません');
+  const id=pin.id||crypto.randomUUID();
+  let images=[];
+  try{
+    images=await uploadPendingImages(pin.images||[],id);
+    const {data,error}=await sbClient.from(SUPABASE_TABLE).insert({
+      id,species:pin.species,kingdom:pin.kingdom,family:pin.family||null,genus:pin.genus||null,
+      lat:pin.lat,lng:pin.lng,discovered_date:pin.discoveredDate||'未記録',location:pin.location||null,
+      conservation:pin.conservation||'指定なし',details:pin.details||null,recorder:pin.recorder||null,
+      images,recorded_at:new Date().toISOString()
+    }).select().single();
+    if(error)throw error;
+    pin.images=images;
+    pin.id=data.id;
+    return data.id;
+  }catch(e){
+    await deleteStorageImages(images);
+    throw e;
+  }
+}
+async function dbPut(pin,oldImages=[]){
+  if(!sbClient)throw new Error('オンラインDBが設定されていません');
+  const images=await uploadPendingImages(pin.images||[],pin.id);
+  const {data,error}=await sbClient.from(SUPABASE_TABLE).update({
+    species:pin.species,kingdom:pin.kingdom,family:pin.family||null,genus:pin.genus||null,
+    lat:pin.lat,lng:pin.lng,discovered_date:pin.discoveredDate||'未記録',location:pin.location||null,
+    conservation:pin.conservation||'指定なし',details:pin.details||null,recorder:pin.recorder||null,
+    images,updated_at:new Date().toISOString()
+  }).eq('id',pin.id).select().single();
+  if(error){await deleteStorageImages(images.filter(x=>!(oldImages||[]).includes(x)));throw error;}
+  pin.images=images;
+  const removed=(oldImages||[]).filter(x=>!images.includes(x));
+  await deleteStorageImages(removed);
+  return data?.id||pin.id;
+}
+async function dbDelete(id,images=[]){
+  if(!sbClient)throw new Error('オンラインDBが設定されていません');
+  const {error}=await sbClient.from(SUPABASE_TABLE).delete().eq('id',id);
+  if(error)throw error;
+  await deleteStorageImages(images);
+  return true;
+}
+function setupRealtime(){
+  if(!sbClient)return;
+  if(realtimeChannel){try{sbClient.removeChannel(realtimeChannel);}catch(e){}}
+  realtimeChannel=sbClient.channel('bio-records-sync')
+    .on('postgres_changes',{event:'*',schema:'public',table:SUPABASE_TABLE},()=>{
+      clearTimeout(refreshTimer);
+      refreshTimer=setTimeout(()=>refreshOnlineData(false),350);
+    }).subscribe();
+}
+async function refreshOnlineData(showToast=false){
+  if(!sbClient){setSyncStatus('未設定：Supabase URL / Publishable Key を入力してください');return;}
+  try{
+    setSyncStatus('最新データを取得中…');
+    const fresh=await dbGetAll();
+    pins=fresh;
+    markers.forEach(m=>{if(m&&map&&map.hasLayer(m))m.remove();});
+    markers=[];
+    pins.forEach((p,i)=>addMarker(p,i));
+    refreshRecorderDatalist();
+    document.getElementById('d-cnt').textContent=pins.length;
+    document.getElementById('xl-cnt').textContent=pins.length;
+    updateMapMarkers();renderMiniList();renderList();renderGrid();refreshES();
+    setSyncStatus(`オンライン同期：${pins.length}件`,true);
+    if(showToast)toast('最新データを取得しました');
+  }catch(e){
+    setSyncStatus(`同期エラー：${e.message||e}`);
+    if(showToast)toast('データ取得に失敗しました');
+  }
+}
+
+// 旧版のIndexedDBから、この端末に残っている記録を一括移行する
+function readLegacyLocalDb(){
+  return new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window)){resolve([]);return;}
+    let req;
+    try{req=indexedDB.open('bioRecordsDB',1);}catch(e){resolve([]);return;}
+    req.onsuccess=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains('pins')){resolve([]);return;}
+      try{
+        const tx=db.transaction('pins','readonly');
+        const q=tx.objectStore('pins').getAll();
+        q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>resolve([]);
+      }catch(e){resolve([]);}
+    };
+    req.onerror=()=>resolve([]);
+    req.onupgradeneeded=()=>{ /* 既存DBがなければ移行対象なし */ };
+  });
+}
+async function migrateLegacyRecords(){
+  if(!sbClient){toast('先にSupabaseの設定をしてください');return;}
+  const legacy=await readLegacyLocalDb();
+  if(!legacy.length){toast('この端末に移行対象の旧記録がありません');return;}
+  if(!confirm(`この端末の旧記録 ${legacy.length} 件をオンラインDBへ移行します。実行しますか？`))return;
+  let ok=0;
+  for(const p of legacy){
+    try{await dbAdd({...p,id:crypto.randomUUID()});ok++;}catch(e){console.error(e);}
+  }
+  await refreshOnlineData(false);
+  toast(`${ok}件をオンラインへ移行しました`);
+}
+
+// ━━ 記録者履歴（localStorage） ━━
+const RECORDER_HIST_KEY='bio_recorder_history';
+function getRecorderHistory(){
+  try{return JSON.parse(localStorage.getItem(RECORDER_HIST_KEY)||'[]');}catch(e){return [];}
+}
+function addRecorderHistory(name){
+  if(!name)return;
+  let hist=getRecorderHistory().filter(n=>n!==name);
+  hist.unshift(name);
+  if(hist.length>15)hist=hist.slice(0,15);
+  try{localStorage.setItem(RECORDER_HIST_KEY,JSON.stringify(hist));}catch(e){}
+  refreshRecorderDatalist();
+}
+function refreshRecorderDatalist(){
+  const dl=document.getElementById('recorder-history-list');
+  if(!dl)return;
+  dl.innerHTML=getRecorderHistory().map(n=>`<option value="${String(n).replace(/"/g,'&quot;')}"></option>`).join('');
+}
+let recorderPickerTarget='f-recorder';
+function openRecorderPicker(targetId){
+  recorderPickerTarget=targetId;
+  const list=document.getElementById('recorder-picker-list');
+  list.innerHTML='';
+  const hist=getRecorderHistory();
+  if(!hist.length){
+    const empty=document.createElement('div');
+    empty.style.cssText='padding:20px;text-align:center;color:#999;font-size:.8rem;';
+    empty.innerHTML='記録者の履歴がありません。<br>下の入力欄に直接入力してください。';
+    list.appendChild(empty);
+  }else{
+    hist.forEach(n=>{
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='rp-item';
+      btn.textContent=n;
+      btn.addEventListener('click',()=>selectRecorder(n));
+      list.appendChild(btn);
+    });
+  }
+  document.getElementById('recorder-picker-overlay').classList.add('open');
+  document.getElementById('recorder-picker-sheet').style.display='flex';
+}
+function selectRecorder(name){
+  const el=document.getElementById(recorderPickerTarget);
+  if(el)el.value=name;
+  closeRecorderPicker();
+}
+function closeRecorderPicker(){
+  document.getElementById('recorder-picker-overlay').classList.remove('open');
+  document.getElementById('recorder-picker-sheet').style.display='none';
+}
+
+// ━━ MAP INIT ━━
+function initMap(){
+  const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'});
+  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'});
+  const veg=L.tileLayer('https://map.ecoris.info/tiles/vege/{z}/{x}/{y}.png',{minZoom:5,maxZoom:15,attribution:'© Ecoris/環境省'});
+
+  map=L.map('map',{center:[34.226034,135.167507],zoom:8,layers:[osm]});
+  L.control.layers({'標準':osm,'衛星写真':sat},{'植生（環境省）':veg}).addTo(map);
+  map.on('moveend',()=>{
+    if(hmOn)updateHeatmap();
+    updateMapMarkers();
+  });
+}
+
+// ━━ 検索共通ヘルパー ━━
+// 記録者・科・属・市町村・座標・種名で検索できるようにする
+function pinSearchHay(p){
+  const coordStr=(p.lat!=null&&p.lng!=null&&!isNaN(p.lat)&&!isNaN(p.lng))?`${p.lat},${p.lng} ${p.lat} ${p.lng}`:'';
+  return [p.species,p.family,p.genus,p.kingdom,p.recorder,p.location,coordStr].join(' ').toLowerCase();
+}
+
+// ━━ マップ 検索 ━━
+let mapSearchDebounce=null;
+function onMapSearchInput(){
+  clearTimeout(mapSearchDebounce);
+  mapSearchDebounce=setTimeout(()=>{
+    mapSearchQuery=document.getElementById('map-search').value.trim();
+    updateMapMarkers();
+    renderMiniList();
+    if(mapSearchQuery){
+      const q=mapSearchQuery.toLowerCase();
+      const matches=pins.filter(p=>{
+        if(mapKF&&p.kingdom!==mapKF)return false;
+        if(p.lat==null||p.lng==null||isNaN(p.lat)||isNaN(p.lng))return false;
+        return pinSearchHay(p).includes(q);
+      });
+      if(matches.length){
+        const bounds=L.latLngBounds(matches.map(p=>[p.lat,p.lng]));
+        map.fitBounds(bounds.pad(0.25));
+      }
+    }
+  },300);
+}
+
+// ━━ PAGES ━━
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById(name+'-page').classList.add('active');
+  const nb=document.getElementById('nb-'+name);
+  if(nb)nb.classList.add('active');
+  if(name==='map'){map.invalidateSize();updateMapMarkers();renderMiniList();}
+  if(name==='list')renderList();
+  if(name==='grid')renderGrid();
+  if(name==='edit')refreshES();
+  if(name==='data'){
+    document.getElementById('d-cnt').textContent=pins.length;
+    document.getElementById('xl-cnt').textContent=pins.length;
+    // ファイル読み込み後にプレビューをリセット
+    document.getElementById('xl-preview').style.display='none';
+    document.getElementById('xl-dl-btn').style.display='none';
+  }
+  if(name!=='detail')prevPage=name;
+}
+
+// ━━ MAP FILTER PANEL ━━
+function toggleFilterPanel(){
+  document.getElementById('map-filter-panel').classList.toggle('open');
+}
+document.querySelectorAll('#map-kf .fp-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#map-kf .fp-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    mapKF=this.dataset.k;
+    updateMapMarkers();
+    renderMiniList();
+  });
+});
+function toggleHeatmap(){
+  hmOn=!hmOn;
+  const btn=document.getElementById('hm-btn');
+  btn.classList.toggle('on',hmOn);
+  updateHeatmap();updateMapMarkers();
+}
+
+// ━━ MARKERS ━━
+function buildPopup(p,idx){
+  const consMap={'指定なし':'cn','準絶滅危惧(NT)':'cnt','絶滅危惧II(VU)':'cnv','絶滅危惧IB(EN)':'cne','絶滅危惧IA(CR)':'cnc','情報不足(DD)':'cnd','外来生物':'cnx'};
+  let h=`<strong>${p.species}</strong>`;
+  if(p.conservation&&p.conservation!=='指定なし'){
+    const cls=consMap[p.conservation]||'cn';
+    h+=`<br><span class="dc ${cls}">${p.conservation}</span>`;
+  }
+  if(p.location)h+=`<br><small>場所：${p.location}</small>`;
+  h+=`<br><small>日付：${p.discoveredDate||''}</small>`;
+  if(p.recorder)h+=`<br><small>記録者：${p.recorder}</small>`;
+  const imgs=p.images||[];
+  if(imgs.length)h+=`<br><img src="${imgs[0]}" style="width:140px;height:100px;object-fit:cover;border-radius:6px;margin:4px 0;cursor:pointer" onclick="openModal('${imgs[0]}')">`;
+  h+=`<br><button onclick="openDetail(${idx})" style="margin-top:6px;padding:6px 14px;background:#1B4332;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">詳細</button>`;
+  return h;
+}
+function addMarker(p,idx){
+  const m=L.marker([p.lat,p.lng],{icon:icon(p.kingdom)});
+  m.bindPopup(buildPopup(p,idx),{maxWidth:220});
+  markers[idx]=m;
+}
+// 配列からランダムにn件を抽出（Fisher-Yates部分シャッフル）
+function sampleArray(arr,n){
+  const a=arr.slice();
+  const len=a.length;
+  const take=Math.min(n,len);
+  for(let i=0;i<take;i++){
+    const j=i+Math.floor(Math.random()*(len-i));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a.slice(0,take);
+}
+
+function updateMapMarkers(){
+  if(!map)return;
+  const badge=document.getElementById('map-count-badge');
+  if(hmOn){
+    for(let i=0;i<pins.length;i++){
+      const m=markers[i];
+      if(m&&map.hasLayer(m))m.remove();
+    }
+    if(badge)badge.classList.remove('show');
+    return;
+  }
+  const bounds=map.getBounds();
+  const q=mapSearchQuery.toLowerCase();
+  const candidates=[];
+  for(let i=0;i<pins.length;i++){
+    const p=pins[i];
+    if(!p||p.lat==null||p.lng==null||isNaN(p.lat)||isNaN(p.lng))continue;
+    if(mapKF&&p.kingdom!==mapKF)continue;
+    if(q){
+      if(!pinSearchHay(p).includes(q))continue;
+    }
+    if(!bounds.contains([p.lat,p.lng]))continue;
+    candidates.push(i);
+  }
+  let displaySet=candidates;
+  let sampled=false;
+  if(candidates.length>MAX_MAP_MARKERS){
+    displaySet=sampleArray(candidates,MAX_MAP_MARKERS);
+    sampled=true;
+  }
+  const showSet=new Set(displaySet);
+  for(let i=0;i<pins.length;i++){
+    let m=markers[i];
+    if(!m&&pins[i]){m=addMarker(pins[i],i);}
+    if(!m)continue;
+    if(showSet.has(i)){
+      if(!map.hasLayer(m))m.addTo(map);
+    }else{
+      if(map.hasLayer(m))m.remove();
+    }
+  }
+  if(badge){
+    if(candidates.length>0){
+      badge.textContent=sampled
+        ?`表示範囲内 ${candidates.length}件中 ${displaySet.length}件をランダム表示`
+        :`表示範囲内：${candidates.length}件`;
+      badge.classList.add('show');
+    }else{
+      badge.classList.remove('show');
+    }
+  }
+}
+
+// ━━ MINI LIST (MAP SIDEBAR) ━━
+function renderMiniList(){
+  const body=document.getElementById('map-minilist-body');
+  if(!body)return;
+  body.innerHTML='';
+  const q=mapSearchQuery.toLowerCase();
+  const filtered=pins.filter(p=>{
+    if(mapKF&&p.kingdom!==mapKF)return false;
+    if(q&&!pinSearchHay(p).includes(q))return false;
+    return true;
+  });
+  if(!filtered.length){
+    body.innerHTML='<div style="padding:20px;text-align:center;color:#aaa;font-size:.78rem;">記録がありません</div>';
+    return;
+  }
+  filtered.forEach(p=>{
+    const i=pins.indexOf(p);
+    const imgs=p.images||[];
+    const imgH=imgs.length
+      ?`<div class="ml-img"><img src="${imgs[0]}" loading="lazy"></div>`
+      :`<div class="ml-img"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg></div>`;
+    const bClass=p.kingdom==='動物界'?'ba':p.kingdom==='菌界'?'bf':'bp';
+    const bLabel=p.kingdom.replace('界','');
+    const div=document.createElement('div');
+    div.className='ml-item';
+    div.innerHTML=`${imgH}<div style="flex:1;min-width:0;"><div class="ml-name">${p.species}</div><div class="ml-date">${p.discoveredDate||''}${p.location?' · '+p.location:''}${p.recorder?' · '+p.recorder:''}</div></div><span class="badge ml-badge ${bClass}">${bLabel}</span>`;
+    div.onclick=()=>{
+      map.setView([p.lat,p.lng],14);
+      setTimeout(()=>markers[i]&&markers[i].openPopup(),300);
+    };
+    body.appendChild(div);
+  });
+}
+
+// ━━ HEATMAP ━━
+function updateHeatmap(){
+  if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}
+  if(!hmOn)return;
+  hmLayer=L.layerGroup();
+  const z=map.getZoom(),b=map.getBounds();
+  const tl=map.project(b.getNorthWest(),z),br=map.project(b.getSouthEast(),z);
+  const cs=11,cols=Math.ceil((br.x-tl.x)/cs),rows=Math.ceil((br.y-tl.y)/cs);
+  const g=Array.from({length:rows},()=>new Array(cols).fill(0));
+  let max=0;
+  pins.forEach(p=>{
+    if(mapKF&&p.kingdom!==mapKF)return;
+    const pt=map.project(L.latLng(p.lat,p.lng),z);
+    const c=Math.floor((pt.x-tl.x)/cs),r=Math.floor((pt.y-tl.y)/cs);
+    if(c>=0&&c<cols&&r>=0&&r<rows){g[r][c]++;if(g[r][c]>max)max=g[r][c];}
+  });
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(!g[r][c])continue;
+    const x1=tl.x+c*cs,y1=tl.y+r*cs;
+    const nw=map.unproject(L.point(x1,y1),z),se=map.unproject(L.point(x1+cs,y1+cs),z);
+    const ratio=g[r][c]/max;
+    L.rectangle([nw,se],{color:'#fff',weight:1,fillColor:`rgb(255,${Math.round(165*(1-ratio))},0)`,fillOpacity:.6,interactive:false}).addTo(hmLayer);
+  }
+  hmLayer.addTo(map);
+}
+
+// ━━ IMAGE UTILS ━━
+// 目標サイズ（固定・画像1枚あたり）。この範囲でできるだけ高画質を維持し、
+// どうしても収まらない場合のみ縦横を段階的に縮小する（圧縮.htmlと同じロジック）。
+const IMG_TARGET_BYTES = 400*1024; // 400KB
+
+function canvasToBlob(canvas,quality){
+  return new Promise(res=>canvas.toBlob(b=>res(b),'image/jpeg',quality));
+}
+
+function compress(dataUrl){
+  return new Promise(res=>{
+    // すでに目標サイズ以下ならそのまま返す
+    const origBytes = Math.ceil(dataUrl.length*3/4);
+    if(origBytes<=IMG_TARGET_BYTES){ res(dataUrl); return; }
+
+    const img=new Image();
+    img.onload=async ()=>{
+      const canvas=document.createElement('canvas');
+      const ctx=canvas.getContext('2d');
+      let scale=1;
+      let bestBlob=null;
+
+      for(let pass=0; pass<8; pass++){
+        const w=Math.max(1,Math.round(img.width*scale));
+        const h=Math.max(1,Math.round(img.height*scale));
+        canvas.width=w;canvas.height=h;
+        ctx.clearRect(0,0,w,h);
+        ctx.drawImage(img,0,0,w,h);
+
+        // 二分探索：目標サイズに収まる範囲で最も高い画質を探す
+        let lo=0.3, hi=0.95, found=null;
+        for(let i=0;i<7;i++){
+          const mid=(lo+hi)/2;
+          const blob=await canvasToBlob(canvas,mid);
+          if(blob.size<=IMG_TARGET_BYTES){ found=blob; lo=mid; } else { hi=mid; }
+        }
+        if(found){ bestBlob=found; break; }
+
+        // 最低画質でも収まらない場合は縦横を縮小して再試行
+        if(w<=400 || h<=400){
+          bestBlob = await canvasToBlob(canvas,0.3);
+          break;
+        }
+        scale*=0.82;
+      }
+
+      const reader=new FileReader();
+      reader.onload=()=>res(reader.result);
+      reader.readAsDataURL(bestBlob);
+    };
+    img.src=dataUrl;
+  });
+}
+function readFile(file, keepOriginal=false){
+  return new Promise(res=>{
+    const r=new FileReader();
+    r.onload=async e=>{
+      if(keepOriginal){
+        res(e.target.result);
+      }else{
+        res(await compress(e.target.result));
+      }
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+// ━━ EXIF 座標読み込み ━━
+// ExifデータをバイナリArrayBufferから解析
+function parseExifCoords(buffer){
+  const view=new DataView(buffer);
+  // JPEG SOI
+  if(view.getUint16(0)!==0xFFD8)return null;
+  let offset=2;
+  while(offset<view.byteLength){
+    const marker=view.getUint16(offset);
+    offset+=2;
+    if(marker===0xFFE1){
+      const len=view.getUint16(offset);
+      const exifHeader=String.fromCharCode(
+        view.getUint8(offset+2),view.getUint8(offset+3),
+        view.getUint8(offset+4),view.getUint8(offset+5)
+      );
+      if(exifHeader==='Exif'){
+        return parseIFD(buffer,offset+8);
+      }
+      offset+=len;
+    }else if((marker&0xFF00)===0xFF00){
+      offset+=view.getUint16(offset);
+    }else break;
+  }
+  return null;
+}
+
+function parseIFD(buffer,start){
+  const view=new DataView(buffer);
+  const isLE=view.getUint16(start)===0x4949;
+  const r16=(o)=>isLE?view.getUint16(o,true):view.getUint16(o);
+  const r32=(o)=>isLE?view.getUint32(o,true):view.getUint32(o);
+
+  const ifdOffset=r32(start+4)+start;
+  const count=r16(ifdOffset);
+
+  let latRef='',lat=null,lngRef='',lng=null,gpsOffset=0;
+  for(let i=0;i<count;i++){
+    const e=ifdOffset+2+i*12;
+    const tag=r16(e);
+    if(tag===0x8825) gpsOffset=r32(e+8)+start;
+  }
+  if(!gpsOffset)return null;
+
+  const gpsCount=r16(gpsOffset);
+  for(let i=0;i<gpsCount;i++){
+    const e=gpsOffset+2+i*12;
+    const tag=r16(e);
+    const type=r16(e+2);
+    const cnt=r32(e+4);
+    const valOff=r32(e+8)+start;
+    if(tag===1){latRef=String.fromCharCode(view.getUint8(e+8));}
+    else if(tag===2&&type===5&&cnt===3){lat=readRational3(view,valOff,isLE);}
+    else if(tag===3){lngRef=String.fromCharCode(view.getUint8(e+8));}
+    else if(tag===4&&type===5&&cnt===3){lng=readRational3(view,valOff,isLE);}
+  }
+  if(lat===null||lng===null)return null;
+  let latDec=lat[0]+lat[1]/60+lat[2]/3600;
+  let lngDec=lng[0]+lng[1]/60+lng[2]/3600;
+  if(latRef==='S')latDec=-latDec;
+  if(lngRef==='W')lngDec=-lngDec;
+  return {lat:latDec,lng:lngDec};
+}
+
+function readRational3(view,offset,isLE){
+  const r=(o)=>isLE?view.getUint32(o,true):view.getUint32(o);
+  return [r(offset)/r(offset+4), r(offset+8)/r(offset+12), r(offset+16)/r(offset+20)];
+}
+
+// 座標読み込みボタン処理
+// coordInputId: 座標inputのid, msgId: メッセージdivのid
+// 複数写真がある場合は必ず1枚目（files[0]）から座標を取得する
+function readExifCoords(coordInputId, msgId){
+  const msg=document.getElementById(msgId);
+  const files=coordInputId.startsWith('f-')?lastFormFiles:lastEditFiles;
+  if(!files||files.length===0){
+    msg.textContent='まず写真を選択してください';
+    msg.className='coord-msg err';
+    return;
+  }
+  msg.textContent='読み込み中...';
+  msg.className='coord-msg';
+
+  // 複数枚あっても常に1枚目から座標を取得
+  const file=files[0];
+  const fr=new FileReader();
+  fr.onload=e=>{
+    try{
+      const coords=parseExifCoords(e.target.result);
+      if(coords){
+        const latStr=coords.lat.toFixed(5);
+        const lngStr=coords.lng.toFixed(5);
+        document.getElementById(coordInputId).value=`${latStr}, ${lngStr}`;
+        msg.textContent=`座標を読み込みました (1枚目): ${latStr}, ${lngStr}`;
+        msg.className='coord-msg';
+      }else{
+        msg.textContent='1枚目の写真に座標情報が見つかりませんでした';
+        msg.className='coord-msg err';
+      }
+    }catch(err){
+      msg.textContent='座標の読み込みに失敗しました';
+      msg.className='coord-msg err';
+    }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+// 都道府県コード → 都道府県名テーブル
+const PREF_NAMES={
+  '01':'北海道','02':'青森県','03':'岩手県','04':'宮城県','05':'秋田県',
+  '06':'山形県','07':'福島県','08':'茨城県','09':'栃木県','10':'群馬県',
+  '11':'埼玉県','12':'千葉県','13':'東京都','14':'神奈川県','15':'新潟県',
+  '16':'富山県','17':'石川県','18':'福井県','19':'山梨県','20':'長野県',
+  '21':'岐阜県','22':'静岡県','23':'愛知県','24':'三重県','25':'滋賀県',
+  '26':'京都府','27':'大阪府','28':'兵庫県','29':'奈良県','30':'和歌山県',
+  '31':'鳥取県','32':'島根県','33':'岡山県','34':'広島県','35':'山口県',
+  '36':'徳島県','37':'香川県','38':'愛媛県','39':'高知県','40':'福岡県',
+  '41':'佐賀県','42':'長崎県','43':'熊本県','44':'大分県','45':'宮崎県',
+  '46':'鹿児島県','47':'沖縄県'
+};
+
+// 座標から都道府県・市町村取得（国土地理院API）
+async function loadMunicipality(coordInputId, locationInputId, msgId){
+  const msg=document.getElementById(msgId);
+  const val=document.getElementById(coordInputId).value.trim();
+  if(!val){msg.textContent='先に座標を入力してください';msg.className='coord-msg err';return;}
+  const parts=val.split(',').map(v=>parseFloat(v.trim()));
+  if(parts.length<2||isNaN(parts[0])||isNaN(parts[1])){
+    msg.textContent='座標の形式が正しくありません';msg.className='coord-msg err';return;
+  }
+  const [lat,lng]=parts;
+  msg.textContent='住所を取得中...';msg.className='coord-msg';
+  try{
+    // HeartRails Express API: 都道府県・郡・市区町村・町域まで返す
+    const res=await fetch(`https://geoapi.heartrails.com/api/json?method=searchByGeoLocation&x=${lng}&y=${lat}`);
+    const data=await res.json();
+    const loc=data.response&&data.response.location&&data.response.location[0];
+    if(loc){
+      // prefecture / city（郡+市区町村）/ town（町域）を結合
+      // 例: 和歌山県 → 伊都郡九度山町 → 九度山
+      const pref=loc.prefecture||'';
+      const city=loc.city||'';      // 郡がある場合は「○○郡○○町」が入る
+      const town=loc.town||'';      // 町域（大字レベル）
+      const fullName=pref+city+town;
+      document.getElementById(locationInputId).value=fullName;
+      msg.textContent=`取得しました: ${fullName}`;
+      msg.className='coord-msg';
+    }else{
+      // フォールバック: 国土地理院API
+      const res2=await fetch(`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lon=${lng}&lat=${lat}`);
+      const data2=await res2.json();
+      if(data2.results&&data2.results.muniCd){
+        const r=data2.results;
+        const prefCode=String(r.muniCd).padStart(5,'0').slice(0,2);
+        const prefName=PREF_NAMES[prefCode]||'';
+        const muniName=r.lv01Nm||'';
+        const fullName=prefName+muniName;
+        document.getElementById(locationInputId).value=fullName;
+        msg.textContent=`取得しました: ${fullName}`;
+        msg.className='coord-msg';
+      }else{
+        msg.textContent='住所情報が見つかりませんでした';msg.className='coord-msg err';
+      }
+    }
+  }catch(e){
+    msg.textContent='取得に失敗しました';msg.className='coord-msg err';
+  }
+}
+
+// ━━ FORM IMAGE HANDLING ━━
+document.getElementById('f-img').addEventListener('change',async function(){
+  lastFormFiles=Array.from(this.files);
+  for(const f of this.files){
+    const d=await readFile(f,false); // プレビュー用は常に圧縮
+    formImgs.push({dataUrl:d, file:f});
+  }
+  this.value='';
+  renderFormPreviews();
+});
+function renderFormPreviews(){
+  const wrap=document.getElementById('imgs-preview');
+  wrap.innerHTML='';
+  formImgs.forEach((im,i)=>{
+    const d=document.createElement('div');d.className='prev-thumb';
+    d.innerHTML=`<img src="${im.dataUrl}"><button class="rm" onclick="removeFormImg(${i})">×</button>`;
+    wrap.appendChild(d);
+  });
+}
+function removeFormImg(i){formImgs.splice(i,1);renderFormPreviews();}
+
+// ━━ RECORD ━━
+async function doRecord(){
+  const species=document.getElementById('f-sp').value.trim();
+  const coords=document.getElementById('f-co').value.trim();
+  const recorder=document.getElementById('f-recorder').value.trim();
+  const [lat,lng]=coords.split(',').map(v=>parseFloat(v.trim()));
+  if(!species||isNaN(lat)||isNaN(lng)){toast('種名と座標を入力してください');return;}
+  if(!recorder){toast('記録者を入力してください');return;}
+  const keepOrig=document.getElementById('f-orig-quality').checked;
+  // チェック状態に応じて画像を変換（元ファイルがあれば再変換、なければ既存dataUrlを使用）
+  const images=await Promise.all(formImgs.map(async im=>{
+    if(keepOrig && im.file){
+      return await readFile(im.file, true);
+    }
+    return im.dataUrl;
+  }));
+  const pin={
+    species,
+    family:document.getElementById('f-fa').value.trim(),
+    genus:document.getElementById('f-ge').value.trim(),
+    kingdom:document.getElementById('f-k').value,
+    lat,lng,
+    discoveredDate:document.getElementById('f-dt').value.trim()||'未記録',
+    location:document.getElementById('f-lo').value.trim(),
+    conservation:document.getElementById('f-cn').value,
+    details:document.getElementById('f-de').value.trim(),
+    recorder,
+    images,
+    timestamp:new Date().toLocaleString()
+  };
+  let newId;
+  try{
+    newId=await dbAdd(pin);
+    if(newId!=null)pin.id=newId;
+  }catch(e){toast(`保存に失敗しました：${e.message||e}`);return;}
+  pins.push(pin);
+  const idx=pins.length-1;
+  addMarker(pin,idx);
+  updateMapMarkers();
+  addRecorderHistory(recorder);
+  formImgs=[];lastFormFiles=[];renderFormPreviews();
+  document.getElementById('f-orig-quality').checked=false;
+  resetForm();
+  toast('記録しました（オンラインに保存）');
+  showPage('map');
+  map.setView([lat,lng],13);
+  setTimeout(()=>markers[idx]&&markers[idx].openPopup(),400);
+}
+function resetForm(){
+  ['f-sp','f-fa','f-ge','f-co','f-dt','f-lo','f-de'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cn').value='指定なし';
+  document.getElementById('f-k').value='植物界';
+  document.querySelectorAll('#ks .kb').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('f-coord-msg').textContent='';
+}
+document.querySelectorAll('#ks .kb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#ks .kb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('f-k').value=this.dataset.k;
+  });
+});
+
+// ━━ SAVE TXT ━━
+// 画像部分はbase64（data URL）に変換してから書き出す（オンラインURLへの依存をなくし、単体で完結したファイルにする）
+async function buildRecordTxt(p){
+  const esc=(p.details||'').replace(/\n/g,'\\n');
+  const imgs=await Promise.all((p.images||[]).map(imageUrlToBase64));
+  const imgLines=imgs.map((d,i)=>`画像${i+1}: ${d}`).join('\n');
+  return `種名: ${p.species}\n界: ${p.kingdom}\n科: ${p.family||'未記録'}\n属: ${p.genus||'未記録'}\n座標: ${p.lat}, ${p.lng}\n発見日: ${p.discoveredDate}\n記録時間: ${p.timestamp}\n都道府県市町村: ${p.location||''}\n絶滅危惧種: ${p.conservation||'指定なし'}\n記録者: ${p.recorder||''}\n詳細: ${esc}\n${imgLines||'画像1: なし'}`;
+}
+// ファイル名として使えない文字を除去する
+function sanitizeFileName(name){
+  return (name||'記録').replace(/[\\/:*?"<>|\n\r]/g,'').trim()||'記録';
+}
+function triggerTxtDownload(filename,text){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));
+  a.download=filename;a.click();
+}
+async function saveTxt(p){
+  const txt=await buildRecordTxt(p);
+  triggerTxtDownload(`${sanitizeFileName(p.species)}_${Date.now()}.txt`,txt);
+}
+
+// ━━ FILE LOAD ━━
+function loadFiles(input){
+  Array.from(input.files).forEach(file=>{
+    const r=new FileReader();
+    r.onload=async e=>{
+      const lines=e.target.result.split('\n');
+      const g=k=>lines.find(l=>l.startsWith(k+': '))?.slice(k.length+2).trim()||'';
+      const coords=(g('座標')||'').split(',');
+      const lat=parseFloat(coords[0]),lng=parseFloat(coords[1]);
+      const species=g('種名');
+      if(!species||isNaN(lat)||isNaN(lng)){toast(`${file.name}: 形式エラー`);return;}
+      const imgs=[];
+      lines.forEach(l=>{
+        const m=l.match(/^画像\d+: (.+)/);
+        if(m&&m[1]!=='なし')imgs.push(m[1]);
+      });
+      if(!imgs.length){const old=g('画像');if(old&&old!=='なし')imgs.push(old);}
+      const pin={
+        species,kingdom:g('界'),family:g('科'),genus:g('属'),
+        lat,lng,discoveredDate:g('発見日'),timestamp:g('記録時間'),
+        location:g('都道府県市町村'),conservation:g('絶滅危惧種'),
+        recorder:g('記録者')||'不明',
+        details:(g('詳細')||'').replace(/\\n/g,'\n'),
+        images:imgs
+      };
+      try{
+        const newId=await dbAdd(pin);
+        if(newId!=null)pin.id=newId;
+      }catch(err){toast(`${file.name}: オンライン保存に失敗`);return;}
+      pins.push(pin);
+      addMarker(pin,pins.length-1);
+      updateMapMarkers();
+      if(pin.recorder&&pin.recorder!=='不明')addRecorderHistory(pin.recorder);
+      document.getElementById('d-cnt').textContent=pins.length;
+    };
+    r.readAsText(file);
+  });
+  input.value='';
+  setTimeout(()=>showPage('map'),1200);
+}
+
+function loadBoundary(input){
+  Array.from(input.files).forEach(file=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const topo=JSON.parse(e.target.result);
+        const key=Object.keys(topo.objects)[0];
+        const geo=topojson.feature(topo,topo.objects[key]);
+        const layer=L.geoJSON(geo,{style:{color:'#0F5474',weight:2,fillColor:'#0F5474',fillOpacity:.2}}).addTo(map);
+        boundaryLayers.push(layer);
+        map.fitBounds(L.featureGroup(boundaryLayers).getBounds());
+      }catch{toast('境界ファイルエラー');}
+    };
+    r.readAsText(file);
+  });
+  input.value='';
+}
+
+// ━━ LIST ━━
+document.querySelectorAll('#lf .ftb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#lf .ftb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');listKF=this.dataset.k;renderList();
+  });
+});
+function getBadge(k){return k==='動物界'?'ba':k==='菌界'?'bf':'bp';}
+function getBadgeLabel(k){return k.replace('界','');}
+
+// ━━ リスト：無限スクロール ━━
+let listState={filtered:[],shown:0};
+function renderList(){
+  const q=document.getElementById('ls').value.trim().toLowerCase();
+  const wrap=document.getElementById('list-items');
+  wrap.innerHTML='';
+  const page=document.getElementById('list-page');
+  if(page)page.scrollTop=0;
+  const filtered=pins.filter(p=>{
+    if(listKF&&p.kingdom!==listKF)return false;
+    if(q&&!pinSearchHay(p).includes(q))return false;
+    return true;
+  });
+  listState={filtered,shown:0};
+  if(!filtered.length){
+    wrap.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg><p>記録がありません</p></div>`;
+    return;
+  }
+  appendListBatch();
+}
+function appendListBatch(){
+  const wrap=document.getElementById('list-items');
+  const next=listState.filtered.slice(listState.shown,listState.shown+LIST_PAGE_SIZE);
+  next.forEach(p=>{
+    const i=pins.indexOf(p);
+    const pid=String(p.id);
+    const imgs=p.images||[];
+    const imgH=imgs.length
+      ?`<div class="lci"><img src="${imgs[0]}" loading="lazy"></div>`
+      :`<div class="lci"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21"/></svg></div>`;
+    const isSel=selectedPinIds.has(pid);
+    const owned=isOwner(p);
+    const c=document.createElement('div');c.className='lc'+(listSelectMode&&isSel?' selected':'')+(listSelectMode&&!owned?' lc-locked':'');
+    c.dataset.id=pid;
+    const checkH=listSelectMode
+      ?(owned
+        ?`<label class="lc-check" onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleListItemSelect('${pid}')"></label>`
+        :`<div class="lc-check lc-check-disabled" onclick="event.stopPropagation()" title="他の記録者の記録は選択できません">🔒</div>`)
+      :'';
+    // デスクトップ用追加情報
+    const extraHtml=`<div class="lc-extra">${p.family?'科：'+p.family+'　':''
+    }${p.genus?'属：'+p.genus+'　':''
+    }${p.conservation&&p.conservation!=='指定なし'?'<span style="color:#b71c1c">⚠ '+p.conservation+'</span>　':''
+    }${p.lat&&p.lng?'<span style="color:#888">'+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+'</span>':''}</div>`;
+    c.innerHTML=`${checkH}${imgH}<div class="lc-info"><div class="lc-name">${p.species}</div><div class="lc-date">${p.discoveredDate||''}${p.location?' · '+p.location:''}${p.recorder?' · 記録者：'+p.recorder:''}</div>${extraHtml}</div><span class="badge ${getBadge(p.kingdom)}">${getBadgeLabel(p.kingdom)}</span>`;
+    c.onclick=()=>{
+      if(listSelectMode){if(owned)toggleListItemSelect(pid);}
+      else{openDetail(i);}
+    };
+    wrap.appendChild(c);
+  });
+  listState.shown+=next.length;
+}
+
+// ━━ リスト：選択モード / 一括ダウンロード・削除 ━━
+function toggleListSelectMode(){
+  listSelectMode=!listSelectMode;
+  if(!listSelectMode)selectedPinIds.clear();
+  const btn=document.getElementById('list-select-toggle');
+  if(btn){
+    btn.classList.toggle('active',listSelectMode);
+    btn.lastChild.textContent=listSelectMode?' 選択解除':' 選択';
+  }
+  const bar=document.getElementById('list-sel-bar');
+  if(bar)bar.style.display=listSelectMode?'flex':'none';
+  const selAll=document.getElementById('list-select-all');
+  if(selAll)selAll.checked=false;
+  updateListSelCount();
+  renderList();
+}
+function updateListSelCount(){
+  const el=document.getElementById('list-sel-count');
+  if(el)el.textContent=`${selectedPinIds.size}件選択中`;
+}
+function refreshListSelectionVisuals(){
+  document.querySelectorAll('#list-items .lc').forEach(el=>{
+    const checked=selectedPinIds.has(el.dataset.id);
+    el.classList.toggle('selected',checked);
+    const cb=el.querySelector('.lc-check input');
+    if(cb)cb.checked=checked;
+  });
+  const selAll=document.getElementById('list-select-all');
+  const ownedFiltered=listState.filtered.filter(isOwner);
+  if(selAll)selAll.checked=ownedFiltered.length>0 && ownedFiltered.every(p=>selectedPinIds.has(String(p.id)));
+  updateListSelCount();
+}
+function toggleListItemSelect(id){
+  const p=pins.find(x=>String(x.id)===id);
+  if(p&&!isOwner(p))return; // 他人の記録は選択不可
+  if(selectedPinIds.has(id))selectedPinIds.delete(id);
+  else selectedPinIds.add(id);
+  refreshListSelectionVisuals();
+}
+function toggleSelectAll(checked){
+  if(checked){
+    listState.filtered.forEach(p=>{if(p.id!=null&&isOwner(p))selectedPinIds.add(String(p.id));});
+  }else{
+    selectedPinIds.clear();
+  }
+  refreshListSelectionVisuals();
+}
+
+// 画像URL（またはdata URL）をbase64 data URLに変換する
+async function imageUrlToBase64(url){
+  if(typeof url!=='string')return url;
+  if(url.startsWith('data:'))return url;
+  try{
+    const res=await fetch(url);
+    if(!res.ok)throw new Error('画像取得に失敗：'+res.status);
+    const blob=await res.blob();
+    return await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(r.result);
+      r.onerror=()=>reject(r.error||new Error('読み込み失敗'));
+      r.readAsDataURL(blob);
+    });
+  }catch(e){
+    console.warn('画像のbase64変換に失敗しました：',url,e);
+    return url; // 失敗時は元のURLのまま
+  }
+}
+// 選択した記録を、フォームからの単体保存（saveTxt）と同じ形式のtxtファイルとして
+// 1件ずつダウンロードする（複数ファイルを連続ダウンロードするため、ブラウザにブロックされにくいよう少し間隔を空ける）
+async function downloadSelectedRecords(){
+  if(!selectedPinIds.size){toast('記録を選択してください');return;}
+  const targets=pins.filter(p=>p.id!=null&&selectedPinIds.has(String(p.id))&&isOwner(p));
+  if(!targets.length){toast('選択した記録が見つかりません（自分の記録のみダウンロード可）');return;}
+  const dlBtn=document.querySelector('.lsb-btn.dl');
+  if(dlBtn)dlBtn.disabled=true;
+  toast(`${targets.length}件のtxtファイルを準備中…`);
+  try{
+    const usedNames=new Set();
+    let count=0;
+    for(const p of targets){
+      const txt=await buildRecordTxt(p);
+      let base=sanitizeFileName(p.species),filename=`${base}.txt`,n=2;
+      while(usedNames.has(filename)){filename=`${base}_${n}.txt`;n++;}
+      usedNames.add(filename);
+      triggerTxtDownload(filename,txt);
+      count++;
+      if(count<targets.length)await new Promise(r=>setTimeout(r,350));
+    }
+    toast(`${count}件のtxtファイルをダウンロードしました`);
+  }catch(e){
+    toast(`ダウンロードに失敗しました：${e.message||e}`);
+  }finally{
+    if(dlBtn)dlBtn.disabled=false;
+  }
+}
+async function deleteSelectedRecords(){
+  if(!selectedPinIds.size){toast('記録を選択してください');return;}
+  const targets=pins.filter(p=>p.id!=null&&selectedPinIds.has(String(p.id))&&isOwner(p));
+  if(!targets.length){toast('選択した記録が見つかりません（自分の記録のみ削除可）');return;}
+  const preview=targets.slice(0,5).map(p=>`・${p.species||'(種名なし)'}`).join('\n')+(targets.length>5?`\n…他 ${targets.length-5} 件`:'');
+  if(!confirm(`選択した ${targets.length} 件の記録を削除します。\n\n${preview}\n\n写真もオンラインから削除されます。よろしいですか？`))return;
+  if(!confirm(`本当に削除してよいですか？\nこの操作は取り消せません。（${targets.length} 件）`))return;
+
+  const delBtn=document.querySelector('.lsb-btn.del');
+  if(delBtn)delBtn.disabled=true;
+  toast(`${targets.length}件を削除中…`);
+  const succeededIds=new Set();
+  for(const p of targets){
+    try{
+      await dbDelete(p.id,p.images||[]);
+      succeededIds.add(String(p.id));
+    }catch(e){
+      console.error('削除失敗',p.id,e);
+    }
+  }
+  if(succeededIds.size){
+    for(let i=pins.length-1;i>=0;i--){
+      if(succeededIds.has(String(pins[i].id))){
+        if(markers[i]){if(map&&map.hasLayer(markers[i]))markers[i].remove();}
+        pins.splice(i,1);
+        markers.splice(i,1);
+      }
+    }
+    pins.forEach((p,i)=>{markers[i]&&markers[i].bindPopup(buildPopup(p,i),{maxWidth:220});});
+    selectedPinIds.forEach(id=>{if(succeededIds.has(id))selectedPinIds.delete(id);});
+    updateMapMarkers();renderMiniList();renderGrid();refreshES();
+    document.getElementById('d-cnt').textContent=pins.length;
+    document.getElementById('xl-cnt').textContent=pins.length;
+  }
+  if(delBtn)delBtn.disabled=false;
+  const failCount=targets.length-succeededIds.size;
+  toggleListSelectMode(); // 選択モードを終了し、リストを再描画
+  toast(failCount>0?`${succeededIds.size}件削除しました（${failCount}件失敗）`:`${succeededIds.size}件削除しました`);
+}
+document.getElementById('list-page').addEventListener('scroll',function(){
+  if(this.scrollTop+this.clientHeight>this.scrollHeight-300){
+    if(listState.shown<listState.filtered.length)appendListBatch();
+  }
+});
+
+// ━━ GRID ━━
+document.querySelectorAll('#gf .ftb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#gf .ftb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');gridKF=this.dataset.k;renderGrid();
+  });
+});
+let gridState={filtered:[],shown:0};
+function renderGrid(){
+  const q=document.getElementById('gs').value.trim().toLowerCase();
+  const wrap=document.getElementById('grid-items');
+  wrap.innerHTML='';
+  const page=document.getElementById('grid-page');
+  if(page)page.scrollTop=0;
+  const filtered=pins.filter(p=>{
+    if(gridKF&&p.kingdom!==gridKF)return false;
+    if(q&&!pinSearchHay(p).includes(q))return false;
+    return true;
+  });
+  gridState={filtered,shown:0};
+  if(!filtered.length){
+    wrap.innerHTML=`<div class="empty" style="grid-column:1/-1"><svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6"/></svg><p>記録がありません</p></div>`;
+    return;
+  }
+  appendGridBatch();
+}
+function appendGridBatch(){
+  const wrap=document.getElementById('grid-items');
+  const next=gridState.filtered.slice(gridState.shown,gridState.shown+LIST_PAGE_SIZE);
+  next.forEach(p=>{
+    const i=pins.indexOf(p);
+    const imgs=p.images||[];
+    const c=document.createElement('div');c.className='gc';
+    const imgInner=imgs.length
+      ?`<img src="${imgs[0]}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">`
+      :`<svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2-4.5 1-6 3.5-8 6" fill="#c8e6c9"/></svg>`;
+    c.innerHTML=`<div class="gc-img" style="width:100%;aspect-ratio:1;">${imgInner}</div><div class="gc-info"><div class="gc-name">${p.species}</div><div class="gc-date">${p.discoveredDate||''}${p.location?' · '+p.location:''}${p.recorder?' · '+p.recorder:''}</div></div>`;
+    c.onclick=()=>openDetail(i);
+    wrap.appendChild(c);
+  });
+  gridState.shown+=next.length;
+}
+document.getElementById('grid-page').addEventListener('scroll',function(){
+  if(this.scrollTop+this.clientHeight>this.scrollHeight-300){
+    if(gridState.shown<gridState.filtered.length)appendGridBatch();
+  }
+});
+
+// ━━ DETAIL & SWIPER ━━
+let swiperIdx=0,swiperImgs=[];
+
+function openDetail(idx){
+  curDetail=idx;
+  const p=pins[idx];
+  document.getElementById('d-sp').textContent=p.species;
+  const consMap={'指定なし':'cn','準絶滅危惧(NT)':'cnt','絶滅危惧II(VU)':'cnv','絶滅危惧IB(EN)':'cne','絶滅危惧IA(CR)':'cnc','情報不足(DD)':'cnd','外来生物':'cnx'};
+  const cd=document.getElementById('d-cn');
+  cd.className='dc '+(consMap[p.conservation]||'cn');
+  cd.textContent=p.conservation||'';
+  document.getElementById('d-fa').textContent=p.family||'—';
+  document.getElementById('d-ge').textContent=p.genus||'—';
+  document.getElementById('d-dt').textContent=p.discoveredDate||'—';
+  document.getElementById('d-lo').textContent=p.location||'—';
+  document.getElementById('d-co').textContent=`${p.lat}, ${p.lng}`;
+  document.getElementById('d-rec').textContent=p.recorder||'—';
+  document.getElementById('d-el').textContent='取得中...';
+  // 国土地理院 標高API
+  fetch(`https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php?lon=${p.lng}&lat=${p.lat}&outtype=JSON`)
+    .then(r=>r.json())
+    .then(d=>{
+      const el=d.elevation;
+      if(el===null||el===undefined||isNaN(el)){
+        document.getElementById('d-el').textContent='—';
+      }else{
+        document.getElementById('d-el').textContent=Math.round(el)+' m';
+      }
+    })
+    .catch(()=>{document.getElementById('d-el').textContent='—';});
+  document.getElementById('d-no').textContent=p.details||'';
+  document.getElementById('d-nw').style.display=p.details?'block':'none';
+
+  swiperImgs=p.images||[];
+  const sw=document.getElementById('detail-swiper');
+  if(swiperImgs.length){
+    sw.style.display='block';
+    buildSwiper(0);
+    let tx=0;
+    sw.ontouchstart=e=>{tx=e.touches[0].clientX;};
+    sw.ontouchend=e=>{
+      const dx=e.changedTouches[0].clientX-tx;
+      if(Math.abs(dx)>40)swiperMove(dx<0?1:-1);
+    };
+  }else{sw.style.display='none';}
+
+  const mb=document.getElementById('dmap-box');
+  mb.innerHTML='';
+  if(dMapInst){dMapInst.remove();dMapInst=null;}
+  dMapInst=L.map(mb,{center:[p.lat,p.lng],zoom:13});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(dMapInst);
+  L.marker([p.lat,p.lng],{icon:icon(p.kingdom)}).addTo(dMapInst);
+  setTimeout(()=>{dMapInst.invalidateSize();dMapInst.setView([p.lat,p.lng],13);},300);
+
+  // ブラウザの「戻る」ボタンや横スワイプ（ジェスチャー）で一覧に戻れるよう、
+  // 詳細を開くたびに履歴に1件積む（戻る操作はpopstateで検知してcloseDetailと同じ処理を行う）
+  history.pushState({detail:true},'','#detail');
+
+  document.getElementById('d-wiki').innerHTML='読み込み中...';
+  fetch(`https://ja.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(p.species)}&format=json&origin=*&prop=text`)
+    .then(r=>r.json()).then(data=>{
+      if(data.error){document.getElementById('d-wiki').textContent='情報が見つかりませんでした。';return;}
+      const doc=new DOMParser().parseFromString(data.parse.text['*'],'text/html');
+      doc.querySelectorAll('table.infobox,.mw-references-wrap,.reflist,.thumb,.mw-editsection').forEach(el=>el.remove());
+      doc.querySelectorAll('a').forEach(a=>{a.removeAttribute('href');a.style.color='inherit';a.style.textDecoration='none';});
+      const allowed=['概要','分布','利用','種の保全状況評価'];
+      let html='',kids=Array.from((doc.querySelector('#mw-content-text')||doc.body).children),i=0,lead=[];
+      while(i<kids.length&&kids[i].tagName!=='H2'){lead.push(kids[i].outerHTML);i++;}
+      if(lead.length){const d2=document.createElement('div');d2.innerHTML=lead.join('');d2.querySelectorAll('img').forEach(e=>e.remove());html+=`<h2>概要</h2>${d2.innerHTML}`;}
+      while(i<kids.length){
+        if(kids[i].tagName==='H2'){
+          const t=kids[i].textContent.replace(/\[.*?\]/g,'').trim();
+          if(allowed.includes(t)){
+            html+=`<h2>${t}</h2>`;i++;
+            while(i<kids.length&&kids[i].tagName!=='H2'){
+              const el=kids[i].cloneNode(true);
+              if(t!=='種の保全状況評価')el.querySelectorAll('img').forEach(e=>e.remove());
+              html+=el.outerHTML;i++;
+            }
+          }else{i++;while(i<kids.length&&kids[i].tagName!=='H2')i++;}
+        }else i++;
+      }
+      document.getElementById('d-wiki').innerHTML=html||'情報が見つかりませんでした。';
+    }).catch(()=>{document.getElementById('d-wiki').textContent='読み込みに失敗しました。';});
+
+  showPage('detail');
+}
+
+function buildSwiper(idx){
+  swiperIdx=idx;
+  const track=document.getElementById('swiper-track');
+  track.innerHTML='';
+  swiperImgs.forEach(src=>{
+    const s=document.createElement('div');s.className='swiper-slide';
+    s.innerHTML=`<img src="${src}" onclick="openModal('${src}')">`;
+    track.appendChild(s);
+  });
+  track.style.transform=`translateX(-${swiperIdx*100}%)`;
+  const dots=document.getElementById('swiper-dots');
+  dots.innerHTML='';
+  if(swiperImgs.length>1){
+    swiperImgs.forEach((_,i)=>{
+      const d=document.createElement('div');d.className='sdot'+(i===idx?' active':'');
+      dots.appendChild(d);
+    });
+  }
+  document.getElementById('swiper-prev').style.display=swiperImgs.length>1?'flex':'none';
+  document.getElementById('swiper-next').style.display=swiperImgs.length>1?'flex':'none';
+}
+function swiperMove(dir){
+  swiperIdx=(swiperIdx+dir+swiperImgs.length)%swiperImgs.length;
+  document.getElementById('swiper-track').style.transform=`translateX(-${swiperIdx*100}%)`;
+  document.querySelectorAll('#swiper-dots .sdot').forEach((d,i)=>d.classList.toggle('active',i===swiperIdx));
+}
+
+// 詳細ページを実際に閉じる処理（戻るボタン／ブラウザバック／スワイプのいずれからも呼ばれる）
+function finishCloseDetail(){
+  if(dMapInst){dMapInst.remove();dMapInst=null;}
+  showPage(prevPage==='detail'?'map':prevPage);
+}
+function closeDetail(){
+  // openDetailでpushした履歴を1つ消費する。実際のページ切り替えはpopstateハンドラで行う
+  if(history.state&&history.state.detail){history.back();}
+  else{finishCloseDetail();}
+}
+// ブラウザの「戻る」ボタン・横スワイプ（ジェスチャーバック）による戻る操作をここで検知する
+window.addEventListener('popstate',function(){
+  const detailPage=document.getElementById('detail-page');
+  if(detailPage&&detailPage.classList.contains('active')){
+    finishCloseDetail();
+  }
+});
+
+// ━━ EDIT ━━
+function refreshES(){
+  const sel=document.getElementById('e-sel');
+  sel.innerHTML='';
+  // 自分（ログイン中の記録者）の記録のみを編集対象にする（開発者モード時は全件）
+  const editable=[];
+  pins.forEach((p,i)=>{if(isOwner(p))editable.push(i);});
+  if(!editable.length){
+    const o=document.createElement('option');
+    o.value='';
+    o.textContent=pins.length?'編集できる記録がありません（自分の記録のみ編集可）':'記録がありません';
+    sel.appendChild(o);
+    clearEditForm();
+    return;
+  }
+  editable.forEach(i=>{
+    const p=pins[i];
+    const o=document.createElement('option');
+    o.value=i;o.textContent=`${p.species} (${p.timestamp||''})`;
+    sel.appendChild(o);
+  });
+  loadER(editable[0]);
+}
+function clearEditForm(){
+  ['e-sp','e-fa','e-ge','e-dt','e-lo','e-co','e-de','e-recorder'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  const cn=document.getElementById('e-cn');if(cn)cn.value='指定なし';
+  document.querySelectorAll('#eks .kb').forEach(b=>b.classList.remove('active'));
+  editImgs=[];lastEditFiles=[];
+  const msg=document.getElementById('e-coord-msg');if(msg)msg.textContent='';
+  renderEditPreviews();
+}
+function loadER(idx){
+  idx=parseInt(idx);
+  if(isNaN(idx)||!pins[idx])return;
+  const p=pins[idx];
+  document.getElementById('e-k').value=p.kingdom;
+  document.querySelectorAll('#eks .kb').forEach(b=>b.classList.toggle('active',b.dataset.k===p.kingdom));
+  document.getElementById('e-sp').value=p.species;
+  document.getElementById('e-fa').value=p.family||'';
+  document.getElementById('e-ge').value=p.genus||'';
+  document.getElementById('e-dt').value=p.discoveredDate||'';
+  document.getElementById('e-lo').value=p.location||'';
+  document.getElementById('e-cn').value=p.conservation||'指定なし';
+  document.getElementById('e-co').value=`${p.lat}, ${p.lng}`;
+  document.getElementById('e-de').value=p.details||'';
+  document.getElementById('e-recorder').value=p.recorder||'';
+  editImgs=(p.images||[]).map(d=>({dataUrl:d, file:null}));
+  lastEditFiles=[];
+  document.getElementById('e-coord-msg').textContent='';
+  renderEditPreviews();
+}
+document.querySelectorAll('#eks .kb').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#eks .kb').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('e-k').value=this.dataset.k;
+  });
+});
+async function addEditImgs(input){
+  lastEditFiles=Array.from(input.files);
+  for(const f of input.files){
+    const d=await readFile(f,false); // プレビュー用は常に圧縮
+    editImgs.push({dataUrl:d, file:f});
+  }
+  input.value='';
+  renderEditPreviews();
+}
+function removeEditImg(i){editImgs.splice(i,1);renderEditPreviews();}
+function renderEditPreviews(){
+  const wrap=document.getElementById('e-imgs-preview');
+  wrap.innerHTML='';
+  editImgs.forEach((im,i)=>{
+    const d=document.createElement('div');d.className='prev-thumb';
+    d.innerHTML=`<img src="${im.dataUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;"><button class="rm" onclick="removeEditImg(${i})">×</button>`;
+    wrap.appendChild(d);
+  });
+}
+async function doUpdate(){
+  const idx=parseInt(document.getElementById('e-sel').value);
+  if(isNaN(idx)||!pins[idx])return;
+  if(!isOwner(pins[idx])){toast('自分が記録したデータのみ編集できます');return;}
+  const coords=document.getElementById('e-co').value.split(',').map(v=>parseFloat(v.trim()));
+  const [lat,lng]=coords;
+  if(isNaN(lat)||isNaN(lng)){toast('座標が正しくありません');return;}
+  const recorder=document.getElementById('e-recorder').value.trim();
+  if(!recorder){toast('記録者を入力してください');return;}
+  const keepOrig=document.getElementById('e-orig-quality').checked;
+  const oldPin={...pins[idx],images:[...(pins[idx].images||[])]};
+  const images=await Promise.all(editImgs.map(async im=>{
+    if(im.file){
+      const d=keepOrig?await readFile(im.file,true):await readFile(im.file,false);
+      return d;
+    }
+    return im.dataUrl;
+  }));
+  const updated={...pins[idx],
+    kingdom:document.getElementById('e-k').value,
+    species:document.getElementById('e-sp').value.trim(),
+    family:document.getElementById('e-fa').value.trim(),
+    genus:document.getElementById('e-ge').value.trim(),
+    lat,lng,
+    discoveredDate:document.getElementById('e-dt').value.trim()||'未記録',
+    location:document.getElementById('e-lo').value.trim(),
+    conservation:document.getElementById('e-cn').value,
+    details:document.getElementById('e-de').value.trim(),
+    recorder,
+    images
+  };
+  try{
+    await dbPut(updated,oldPin.images);
+    pins[idx]=updated;
+    addRecorderHistory(recorder);
+    markers[idx]&&markers[idx].setLatLng([lat,lng]);
+    markers[idx]&&markers[idx].setIcon(icon(updated.kingdom));
+    markers[idx]&&markers[idx].bindPopup(buildPopup(updated,idx),{maxWidth:220});
+    updateMapMarkers();
+    renderMiniList();renderList();renderGrid();
+    toast('更新しました');
+  }catch(e){
+    toast(`更新に失敗しました：${e.message||e}`);
+  }
+}
+async function doSaveTxt(){
+  const idx=parseInt(document.getElementById('e-sel').value);
+  if(isNaN(idx)||!pins[idx])return;
+  if(!isOwner(pins[idx])){toast('自分が記録したデータのみダウンロードできます');return;}
+  toast('画像を変換中…');
+  await saveTxt(pins[idx]);
+  toast('保存しました');
+}
+async function doDelete(){
+  const idx=parseInt(document.getElementById('e-sel').value);
+  if(isNaN(idx)||!pins[idx])return;
+  if(!isOwner(pins[idx])){toast('自分が記録したデータのみ削除できます');return;}
+  const target=pins[idx];
+  if(!confirm(`「${target.species}」を削除しますか？\n写真もオンラインから削除されます。`))return;
+  try{
+    await dbDelete(target.id,target.images||[]);
+    if(markers[idx]){map.hasLayer(markers[idx])&&markers[idx].remove();markers[idx]=null;}
+    pins.splice(idx,1);markers.splice(idx,1);
+    pins.forEach((p,i)=>markers[i]&&markers[i].bindPopup(buildPopup(p,i),{maxWidth:220}));
+    renderMiniList();renderList();renderGrid();refreshES();
+    document.getElementById('d-cnt').textContent=pins.length;
+    document.getElementById('xl-cnt').textContent=pins.length;
+    toast('削除しました（オンラインDBからも削除）');
+  }catch(e){
+    toast(`削除に失敗しました：${e.message||e}`);
+  }
+}
+
+// ━━ MODAL / TOAST ━━
+function openModal(src){
+  document.getElementById('img-modal-img').src=src;
+  document.getElementById('img-modal').classList.add('open');
+}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ━━ DATE DRUM PICKER ━━
+(function(){
+  const ITEM_H=44;
+  let dpYear,dpMonth,dpDay;
+  let dpTargetId='f-dt';
+
+  function range(a,b){const r=[];for(let i=a;i<=b;i++)r.push(i);return r;}
+
+  function buildCol(colId,innerId,items,fmt,selected){
+    const inner=document.getElementById(innerId);
+    inner.innerHTML='';
+    items.forEach(v=>{
+      const d=document.createElement('div');
+      d.className='dp-item';
+      d.textContent=fmt(v);
+      inner.appendChild(d);
+    });
+    const col=document.getElementById(colId);
+    const idx=items.indexOf(selected);
+    // scroll after paint
+    requestAnimationFrame(()=>{
+      col.scrollTop=idx*ITEM_H;
+      highlightCol(col,items,idx);
+    });
+  }
+
+  function highlightCol(col,items,centerIdx){
+    col.querySelectorAll('.dp-item').forEach((el,i)=>{
+      el.style.color= i===centerIdx ? 'var(--gd)' : '#bbb';
+      el.style.fontWeight= i===centerIdx ? '700' : '400';
+    });
+  }
+
+  function getColValue(colId,items){
+    const col=document.getElementById(colId);
+    const idx=Math.round(col.scrollTop/ITEM_H);
+    return items[Math.max(0,Math.min(idx,items.length-1))];
+  }
+
+  function daysInMonth(y,m){return new Date(y,m,0).getDate();}
+
+  function rebuildDays(keepDay){
+    const y=getColValue('dp-year',dpYear);
+    const m=getColValue('dp-month',dpMonth);
+    const maxD=daysInMonth(y,m);
+    dpDay=range(1,maxD);
+    const day=Math.min(keepDay||1,maxD);
+    buildCol('dp-day','dp-day-inner',dpDay,v=>v+'日',day);
+  }
+
+  function onScroll(colId,items,siblingCb){
+    const col=document.getElementById(colId);
+    let t;
+    col.addEventListener('scroll',function(){
+      clearTimeout(t);
+      t=setTimeout(()=>{
+        const idx=Math.round(col.scrollTop/ITEM_H);
+        col.scrollTop=idx*ITEM_H;
+        highlightCol(col,items,idx);
+        if(siblingCb)siblingCb();
+      },80);
+    });
+  }
+
+  window.openDatePicker=function(targetId){
+    dpTargetId=targetId||'f-dt';
+    const existing=document.getElementById(dpTargetId).value;
+    let initY=new Date().getFullYear(), initM=new Date().getMonth()+1, initD=new Date().getDate();
+    if(existing){
+      const m=existing.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+      if(m){initY=+m[1];initM=+m[2];initD=+m[3];}
+    }
+    dpYear=range(1900,2100);
+    dpMonth=range(1,12);
+    dpDay=range(1,daysInMonth(initY,initM));
+    buildCol('dp-year','dp-year-inner',dpYear,v=>v+'年',initY);
+    buildCol('dp-month','dp-month-inner',dpMonth,v=>v+'月',initM);
+    buildCol('dp-day','dp-day-inner',dpDay,v=>v+'日',initD);
+    onScroll('dp-year',dpYear,()=>rebuildDays(getColValue('dp-day',dpDay)));
+    onScroll('dp-month',dpMonth,()=>rebuildDays(getColValue('dp-day',dpDay)));
+    onScroll('dp-day',dpDay,null);
+    document.getElementById('date-picker-overlay').classList.add('open');
+    document.getElementById('date-picker-sheet').style.display='block';
+  };
+
+  window.closeDatePicker=function(apply){
+    if(apply){
+      const y=getColValue('dp-year',dpYear);
+      const m=getColValue('dp-month',dpMonth);
+      const d=getColValue('dp-day',dpDay);
+      document.getElementById(dpTargetId).value=`${y}年${m}月${d}日`;
+    }
+    document.getElementById('date-picker-overlay').classList.remove('open');
+    document.getElementById('date-picker-sheet').style.display='none';
+  };
+})();
+
+// ━━ iNaturalist 科・属 自動入力 ━━
+// 学名の末尾から和名風の読みを推定するユーティリティ
+// iNaturalistの祖先タクソンには preferred_common_name が付いている場合がある。
+// 付いていなければ学名をそのまま使う（○○科 / ○○属 のフォーマットで出力）。
+function jaNameOf(taxon, suffix){
+  // preferred_common_name があれば優先（iNatのja localeで返る和名）
+  const name = taxon.preferred_common_name || taxon.name || '';
+  // すでに suffix（科/属）で終わっていれば追加しない
+  return name.endsWith(suffix) ? name : name + suffix;
+}
+
+async function lookupGbif(speciesInputId, familyInputId, genusInputId, msgId){
+  const msg = document.getElementById(msgId);
+  const speciesName = document.getElementById(speciesInputId).value.trim();
+  if(!speciesName){ msg.textContent='先に種名を入力してください'; msg.className='coord-msg err'; return; }
+  msg.textContent='iNaturalistを検索中...'; msg.className='coord-msg';
+  try{
+    // Step1: autocomplete で種を特定
+    const res = await fetch(
+      `https://api.inaturalist.org/v1/taxa/autocomplete?q=${encodeURIComponent(speciesName)}&per_page=5&locale=ja`
+    );
+    if(!res.ok) throw new Error('network');
+    const data = await res.json();
+    const results = data.results || [];
+    if(results.length === 0){
+      msg.textContent='iNaturalistで種が見つかりませんでした'; msg.className='coord-msg err'; return;
+    }
+    const taxon = results[0];
+
+    // Step2: /taxa/{id} を locale=ja で取得 → ancestors に preferred_common_name が付く
+    const res2 = await fetch(
+      `https://api.inaturalist.org/v1/taxa/${taxon.id}?locale=ja`
+    );
+    if(!res2.ok) throw new Error('network');
+    const d2 = await res2.json();
+    const full = (d2.results && d2.results[0]) || taxon;
+    const ancestors = full.ancestors || [];
+
+    let familyTaxon = null, genusTaxon = null;
+    for(const a of ancestors){
+      if(a.rank === 'family') familyTaxon = a;
+      if(a.rank === 'genus')  genusTaxon  = a;
+    }
+    if(!familyTaxon && full.rank === 'family') familyTaxon = full;
+    if(!genusTaxon  && full.rank === 'genus')  genusTaxon  = full;
+
+    const familyLabel = familyTaxon ? jaNameOf(familyTaxon, '科') : '';
+    const genusLabel  = genusTaxon  ? jaNameOf(genusTaxon,  '属') : '';
+
+    if(familyLabel) document.getElementById(familyInputId).value = familyLabel;
+    if(genusLabel)  document.getElementById(genusInputId).value  = genusLabel;
+
+    const displayName = full.preferred_common_name || full.name || speciesName;
+    const fLabel = familyLabel || '科不明';
+    const gLabel = genusLabel  || '属不明';
+    msg.textContent = `取得しました: ${fLabel} / ${gLabel}（${displayName}）`;
+    msg.className = 'coord-msg';
+  }catch(e){
+    msg.textContent = 'iNaturalistへの接続に失敗しました'; msg.className='coord-msg err';
+  }
+}
+
+// ━━ EXCEL EXPORT ━━
+const XL_HEADERS = [
+  '種名','界','科','属',
+  '発見日','都道府県・市町村','絶滅危惧・外来',
+  '緯度','経度',
+  'メモ','記録者','記録日時'
+];
+
+function pinsToRows(){
+  return pins.map(p=>([
+    p.species||'',
+    p.kingdom||'',
+    p.family||'',
+    p.genus||'',
+    p.discoveredDate||'',
+    p.location||'',
+    p.conservation||'',
+    p.lat!=null?p.lat:'',
+    p.lng!=null?p.lng:'',
+    p.details||'',
+    p.recorder||'',
+    p.timestamp||''
+  ]));
+}
+
+function buildXlPreview(){
+  const cnt = document.getElementById('xl-cnt');
+  cnt.textContent = pins.length;
+  if(!pins.length){toast('記録がありません');return;}
+
+  const rows = pinsToRows();
+  const tbl = document.getElementById('xl-table');
+  const thStyle = 'background:#1B4332;color:#fff;padding:5px 8px;font-size:.68rem;white-space:nowrap;text-align:left;';
+  const tdStyle = 'padding:4px 8px;border-bottom:1px solid #e8e8e8;white-space:nowrap;font-size:.7rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;';
+
+  let html = '<thead><tr>' + XL_HEADERS.map(h=>`<th style="${thStyle}">${h}</th>`).join('') + '</tr></thead><tbody>';
+  const preview = rows.slice(0,5);
+  preview.forEach(r=>{
+    html += '<tr>' + r.map(v=>`<td style="${tdStyle}" title="${String(v).replace(/"/g,'&quot;')}">${v}</td>`).join('') + '</tr>';
+  });
+  if(rows.length>5){
+    html += `<tr><td colspan="${XL_HEADERS.length}" style="padding:6px 8px;color:#888;font-size:.68rem;font-style:italic;">… 他 ${rows.length-5} 件</td></tr>`;
+  }
+  html += '</tbody>';
+  tbl.innerHTML = html;
+
+  document.getElementById('xl-preview').style.display='block';
+  document.getElementById('xl-dl-btn').style.display='flex';
+}
+
+function exportXlsx(){
+  if(!pins.length){toast('記録がありません');return;}
+
+  const rows = pinsToRows();
+  const wsData = [XL_HEADERS, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // 列幅設定
+  const colWidths = [20,10,14,14,14,22,16,12,12,30,14,18];
+  ws['!cols'] = colWidths.map(w=>({wch:w}));
+
+  // ヘッダー行スタイル（背景・太字）
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let c=range.s.c; c<=range.e.c; c++){
+    const addr = XLSX.utils.encode_cell({r:0,c});
+    if(!ws[addr]) continue;
+    ws[addr].s = {
+      font:{bold:true,color:{rgb:'FFFFFF'},name:'Arial'},
+      fill:{fgColor:{rgb:'1B4332'}},
+      alignment:{horizontal:'center',vertical:'center'},
+      border:{
+        bottom:{style:'medium',color:{rgb:'52B788'}}
+      }
+    };
+  }
+  // データ行：緯度・経度を数値型に
+  for(let r=1; r<=rows.length; r++){
+    // 緯度 col=7, 経度 col=8
+    [7,8].forEach(c=>{
+      const addr=XLSX.utils.encode_cell({r,c});
+      if(ws[addr]&&ws[addr].v!=='') ws[addr].t='n';
+    });
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '生物記録');
+
+  // サマリーシート
+  const kingdoms = ['植物界','動物界','菌界'];
+  const sumData = [
+    ['項目','件数'],
+    ['総記録数', pins.length],
+    [''],
+    ['界別集計',''],
+    ...kingdoms.map(k=>[k, pins.filter(p=>p.kingdom===k).length]),
+    [''],
+    ['絶滅危惧種（指定あり）', pins.filter(p=>p.conservation&&p.conservation!=='指定なし'&&p.conservation!=='外来生物').length],
+    ['外来生物', pins.filter(p=>p.conservation==='外来生物').length],
+    [''],
+    ['エクスポート日時', new Date().toLocaleString('ja-JP')]
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(sumData);
+  wsSummary['!cols']=[{wch:24},{wch:10}];
+  // サマリーヘッダースタイル
+  ['A1','B1'].forEach(addr=>{
+    if(!wsSummary[addr])return;
+    wsSummary[addr].s={font:{bold:true,color:{rgb:'FFFFFF'},name:'Arial'},fill:{fgColor:{rgb:'1B4332'}}};
+  });
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'サマリー');
+
+  const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  XLSX.writeFile(wb, `生物記録_${date}.xlsx`);
+  toast('Excelをダウンロードしました');
+}
+
+// ━━ INIT ━━
+async function initApp(){
+  await dbInit();
+  if(dbAvailable){
+    try{pins=await dbGetAll();}catch(e){pins=[];setSyncStatus(`初期読み込みエラー：${e.message||e}`);}
+  }else{
+    pins=[];
+  }
+  initMap();
+  pins.forEach((p,i)=>addMarker(p,i));
+  refreshRecorderDatalist();
+  document.getElementById('d-cnt').textContent=pins.length;
+  document.getElementById('xl-cnt').textContent=pins.length;
+  showPage('map');
+  if(dbAvailable)setSyncStatus(`オンライン同期：${pins.length}件`,true);
+  // ログイン時に記録者名が入力されていれば、記録画面の記録者欄に自動入力する
+  if(pendingLoginRecorder){
+    const fRec=document.getElementById('f-recorder');
+    if(fRec)fRec.value=pendingLoginRecorder;
+  }
+}
+// initApp() はログイン成功後に attemptLogin() から呼び出す
+</script>
+</body>
+</html>
